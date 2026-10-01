@@ -142,13 +142,13 @@ export function DashboardTimelineWidget() {
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-400 mx-auto">
               <Calendar className="h-5 w-5" />
             </div>
-            <h4 className="text-xs font-semibold text-slate-800">No Health Events Extracted Yet</h4>
+            <h4 className="text-xs font-semibold text-slate-800">No health events yet.</h4>
             <p className="text-xs text-slate-500 max-w-sm mx-auto">
               Upload documents in the Document Vault and analyze them to automatically build your live health timeline.
             </p>
             <Link href="/documents" className="inline-block pt-1">
-              <Button size="sm" variant="outline" className="text-xs">
-                Go to Document Vault
+              <Button size="sm" className="bg-teal-600 hover:bg-teal-700 text-white text-xs">
+                Upload Document
               </Button>
             </Link>
           </div>

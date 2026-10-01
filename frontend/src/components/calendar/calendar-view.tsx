@@ -193,10 +193,21 @@ export function CalendarView({
         {filteredEvents.length === 0 ? (
           <div className="py-12 text-center space-y-2">
             <CalendarIcon className="h-8 w-8 text-slate-300 mx-auto" />
-            <h4 className="text-sm font-semibold text-slate-800">No appointments found in this view</h4>
+            <h4 className="text-sm font-semibold text-slate-800">
+              {events.length === 0 ? "No upcoming care events." : "No appointments found in this view"}
+            </h4>
             <p className="text-xs text-slate-500 max-w-sm mx-auto">
               Upload discharge summaries or doctor notes with follow-up instructions to generate your healthcare calendar.
             </p>
+            {events.length === 0 && (
+              <div className="pt-2">
+                <a href="/documents">
+                  <span className="inline-flex items-center justify-center rounded-lg bg-teal-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-teal-700 shadow-2xs">
+                    Upload Document
+                  </span>
+                </a>
+              </div>
+            )}
           </div>
         ) : (
           <div className="space-y-8">

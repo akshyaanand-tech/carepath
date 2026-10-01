@@ -11,10 +11,10 @@ import {
   FolderOpen,
   Users,
   QrCode,
-  Stethoscope,
   Menu,
   X,
   Sparkles,
+  CreditCard,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { NavAuth } from "@/components/layout/nav-auth";
@@ -26,6 +26,7 @@ const NAV_ITEMS = [
   { href: "/documents", label: "Documents", icon: FolderOpen },
   { href: "/family", label: "Family", icon: Users },
   { href: "/consent", label: "Share Access", icon: QrCode },
+  { href: "/subscription", label: "Plans", icon: CreditCard },
 ];
 
 export function Navbar() {
@@ -126,22 +127,6 @@ export function Navbar() {
                 </Link>
               );
             })}
-          </div>
-
-          <div className="pt-2 border-t border-slate-100">
-            <Link
-              href="/doctor/access"
-              onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center justify-between px-3 py-2 rounded-lg text-xs bg-slate-900 text-teal-300 font-semibold hover:bg-slate-800"
-            >
-              <span className="flex items-center gap-2">
-                <Stethoscope className="h-4 w-4 text-teal-400" />
-                Doctor Access Portal
-              </span>
-              <Badge variant="outline" className="text-[10px] bg-teal-950 text-teal-300 border-teal-800">
-                Capability View
-              </Badge>
-            </Link>
           </div>
         </div>
       )}

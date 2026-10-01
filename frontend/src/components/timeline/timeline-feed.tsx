@@ -376,17 +376,25 @@ export function TimelineFeed({
                 <Calendar className="h-6 w-6" />
               </div>
               <h3 className="text-sm font-semibold text-slate-800">
-                {hasActiveFilters ? "No events match your selected filters" : "No timeline events recorded yet"}
+                {hasActiveFilters ? "No events match your selected filters" : "No health events yet."}
               </h3>
               <p className="text-xs text-slate-500 max-w-sm mx-auto">
                 {hasActiveFilters
                   ? "Try clearing filters or adjusting your date range."
                   : "Upload medical documents in the Document Vault and run AI analysis to build your chronological health journey."}
               </p>
-              {hasActiveFilters && (
+              {hasActiveFilters ? (
                 <Button variant="outline" size="sm" onClick={clearFilters} className="text-xs mt-2">
                   Clear All Filters
                 </Button>
+              ) : (
+                <div className="pt-2">
+                  <a href="/documents">
+                    <Button size="sm" className="bg-teal-600 hover:bg-teal-700 text-white text-xs">
+                      Upload Document
+                    </Button>
+                  </a>
+                </div>
               )}
             </div>
           ) : (

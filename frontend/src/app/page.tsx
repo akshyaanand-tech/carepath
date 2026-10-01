@@ -11,7 +11,6 @@ import {
   Users,
   Clock,
   AlertTriangle,
-  Stethoscope,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -45,10 +44,10 @@ export default function HomePage() {
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </Link>
-            <Link href="/doctor/access">
+            <Link href="/consent">
               <Button variant="outline" size="lg" className="border-slate-300 text-slate-800 hover:bg-slate-50">
-                <Stethoscope className="mr-2 h-4 w-4 text-teal-600" />
-                Clinician Portal Access
+                <QrCode className="mr-2 h-4 w-4 text-teal-600" />
+                Doctor QR Sharing
               </Button>
             </Link>
           </div>

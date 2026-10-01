@@ -1,7 +1,10 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { MedicalDocumentExtraction } from "@/lib/types";
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+const BACKEND_URL =
+  process.env.NEXT_PUBLIC_API_URL ||
+  process.env.NEXT_PUBLIC_BACKEND_URL ||
+  "http://localhost:8000";
 
 /**
  * Triggers multimodal AI document understanding and structured entity extraction on the FastAPI backend.
@@ -34,10 +37,15 @@ export async function triggerDocumentAnalysis(
       },
     });
 
-    const data = await response.json();
+    const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      const errorMsg = data.detail || `Server error (${response.status}): Failed to process document`;
+      let errorMsg = `Server error (${response.status}): Failed to process document`;
+      if (typeof data.detail === "string") {
+        errorMsg = data.detail;
+      } else if (data.detail && typeof data.detail === "object") {
+        errorMsg = data.detail.message || JSON.stringify(data.detail);
+      }
       return { extraction: null, error: new Error(errorMsg) };
     }
 

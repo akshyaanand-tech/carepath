@@ -76,6 +76,10 @@ function DocumentViewerContent({
     document.file_type === "application/pdf" ||
     document.file_name.toLowerCase().endsWith(".pdf");
 
+  const isTxt =
+    document.file_type === "text/plain" ||
+    document.file_name.toLowerCase().endsWith(".txt");
+
   const formattedDate = new Date(document.uploaded_at).toLocaleString("en-US", {
     month: "short",
     day: "numeric",
@@ -91,7 +95,7 @@ function DocumentViewerContent({
         <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4 bg-slate-50/70">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-600 text-white shadow-xs">
-              {isPdf ? <FileText className="h-5 w-5" /> : <ImageIcon className="h-5 w-5" />}
+              {isPdf || isTxt ? <FileText className="h-5 w-5" /> : <ImageIcon className="h-5 w-5" />}
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -171,6 +175,12 @@ function DocumentViewerContent({
                   src={initialPage ? `${signedUrl}#page=${initialPage}` : signedUrl}
                   title={document.file_name}
                   className="w-full h-[480px] rounded-lg border-0 bg-white"
+                />
+              ) : isTxt ? (
+                <iframe
+                  src={signedUrl}
+                  title={document.file_name}
+                  className="w-full h-[480px] rounded-lg border border-slate-200 bg-white font-mono p-2"
                 />
               ) : (
                 /* eslint-disable-next-line @next/next/no-img-element */

@@ -230,7 +230,7 @@ export function FamilyManager({ currentPatientId }: FamilyManagerProps) {
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-700 border border-indigo-200">
             <Users className="h-6 w-6" />
           </div>
-          <h3 className="text-sm font-bold text-slate-800">No Family Circles Established Yet</h3>
+          <h3 className="text-sm font-bold text-slate-800">No family members added yet.</h3>
           <p className="text-xs text-slate-500 max-w-md mx-auto">
             Create a family circle to add dependents or family members. Each individual retains their own medical documents, timeline, and privacy controls.
           </p>
@@ -240,7 +240,7 @@ export function FamilyManager({ currentPatientId }: FamilyManagerProps) {
             className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs h-9 font-semibold"
           >
             <Plus className="mr-1.5 h-3.5 w-3.5" />
-            Create First Family Circle
+            Add Family Member
           </Button>
         </div>
       ) : (

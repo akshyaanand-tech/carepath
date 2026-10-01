@@ -2,7 +2,10 @@ import { SupabaseClient } from "@supabase/supabase-js";
 import { TimelineResponse, CalendarResponse, MismatchResponse } from "@/lib/types";
 
 // Centralized backend URL configuration
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000";
+const BACKEND_URL =
+  process.env.NEXT_PUBLIC_API_URL ||
+  process.env.NEXT_PUBLIC_BACKEND_URL ||
+  "http://localhost:8000";
 
 /**
  * Retrieves authenticated session token from Supabase client.

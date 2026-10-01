@@ -446,9 +446,9 @@ export default async function DashboardPage() {
             </div>
           </div>
 
-          <Link href="/doctor/access">
+          <Link href="/consent">
             <Badge variant="outline" className="text-xs bg-slate-900 text-teal-300 border-slate-800 hover:bg-slate-800 cursor-pointer flex items-center gap-1.5 py-1 px-2.5">
-              <span>Clinician Portal Access</span>
+              <span>Share Access (QR)</span>
               <ExternalLink className="h-3 w-3" />
             </Badge>
           </Link>
@@ -458,7 +458,7 @@ export default async function DashboardPage() {
           <Link href="/documents" className="p-2.5 rounded-xl border border-slate-100 bg-slate-50/70 hover:bg-teal-50/60 hover:border-teal-200 transition-colors">
             <span className="text-[10px] font-bold text-teal-700 block">STEP 1</span>
             <span className="font-semibold text-slate-800 block mt-0.5">Upload Vault</span>
-            <span className="text-[10px] text-slate-500">5 clinical documents</span>
+            <span className="text-[10px] text-slate-500">Secure record storage</span>
           </Link>
 
           <Link href="/documents" className="p-2.5 rounded-xl border border-slate-100 bg-slate-50/70 hover:bg-teal-50/60 hover:border-teal-200 transition-colors">
@@ -482,7 +482,7 @@ export default async function DashboardPage() {
           <Link href="/timeline" className="p-2.5 rounded-xl border border-slate-100 bg-slate-50/70 hover:bg-teal-50/60 hover:border-teal-200 transition-colors">
             <span className="text-[10px] font-bold text-amber-700 block">STEP 5</span>
             <span className="font-semibold text-slate-800 block mt-0.5">Mismatch Engine</span>
-            <span className="text-[10px] text-slate-500">Tooth #36 vs #37 discrepancy</span>
+            <span className="text-[10px] text-slate-500">Cross-record validation</span>
           </Link>
 
           <Link href="/consent" className="p-2.5 rounded-xl border border-slate-100 bg-slate-50/70 hover:bg-teal-50/60 hover:border-teal-200 transition-colors">
@@ -522,16 +522,15 @@ export default async function DashboardPage() {
               <UploadCloud className="h-6 w-6" />
             </div>
             <div className="space-y-1">
-              <h3 className="text-sm font-bold text-slate-900">Your Document Vault is Ready</h3>
+              <h3 className="text-sm font-bold text-slate-900">No documents uploaded yet.</h3>
               <p className="text-xs text-slate-500 max-w-md mx-auto">
-                Upload prescriptions, lab test reports, or scan summaries to reconstruct your unified timeline.
-                Synthetic sample files are available in the <code className="bg-slate-100 px-1 py-0.5 rounded font-mono text-slate-800">demo-data/</code> folder.
+                Upload your prescriptions, lab test reports, or clinical summaries to reconstruct your unified timeline.
               </p>
             </div>
             <Link href="/documents" className="inline-block pt-1">
               <Button size="sm" className="bg-teal-600 hover:bg-teal-700 text-white text-xs">
                 <UploadCloud className="mr-1.5 h-3.5 w-3.5" />
-                Upload Synthetic Test Document
+                Upload Document
               </Button>
             </Link>
           </div>

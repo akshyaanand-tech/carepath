@@ -56,31 +56,20 @@ def seed_synthetic_journey():
         logger.info(f"Loaded synthetic scenario definition: {journey_data.get('scenario_name')}")
 
     # 1. UPSERT DEMO PATIENT PROFILE (Eleanor Vance)
+    # NEVER overwrite an existing user's profile. Only match Eleanor Vance or insert a dedicated demo profile.
     p_check = client.from_("patients").select("id, user_id").ilike("full_name", "%Eleanor Vance%").execute()
     if p_check.data:
         patient_id = p_check.data[0]["id"]
         logger.info(f"Existing demo patient 'Eleanor Vance' found with ID: {patient_id}")
     else:
-        # Check if an authenticated user patient exists and update it to Eleanor Vance
-        p_any = client.from_("patients").select("id, user_id").limit(1).execute()
-        if p_any.data:
-            patient_id = p_any.data[0]["id"]
-            client.from_("patients").update({
-                "full_name": "Eleanor Vance",
-                "date_of_birth": "1984-06-14",
-                "gender": "Female",
-                "phone": "+1-555-019-2834",
-            }).eq("id", patient_id).execute()
-            logger.info(f"Updated primary patient profile to 'Eleanor Vance' (ID: {patient_id})")
-        else:
-            p_res = client.from_("patients").insert({
-                "full_name": "Eleanor Vance",
-                "date_of_birth": "1984-06-14",
-                "gender": "Female",
-                "phone": "+1-555-019-2834",
-            }).execute()
-            patient_id = p_res.data[0]["id"]
-            logger.info(f"Created primary demo patient 'Eleanor Vance' with ID: {patient_id}")
+        p_res = client.from_("patients").insert({
+            "full_name": "Eleanor Vance",
+            "date_of_birth": "1984-06-14",
+            "gender": "Female",
+            "phone": "+1-555-019-2834",
+        }).execute()
+        patient_id = p_res.data[0]["id"]
+        logger.info(f"Created primary dedicated demo patient 'Eleanor Vance' with ID: {patient_id}")
     # 2. FAMILY CIRCLE & MEMBERSHIPS (Vance Household)
     logger.info("Setting up Family Health Circle: 'Vance Household'...")
     try:
@@ -218,6 +207,21 @@ def seed_synthetic_journey():
             }).execute()
             doc_id = ins.data[0]["id"]
         doc_ids[d["file_name"]] = doc_id
+
+        # Upload physical file to private Supabase Storage 'medical-documents'
+        disk_path = os.path.abspath(os.path.join(BASE_DIR, "..", "demo-data", d["file_name"]))
+        if os.path.exists(disk_path):
+            try:
+                with open(disk_path, "rb") as f:
+                    content_bytes = f.read()
+                client.storage.from_("medical-documents").upload(
+                    path=d["storage_path"],
+                    file=content_bytes,
+                    file_options={"content-type": "text/plain", "upsert": "true"},
+                )
+                logger.info(f"Uploaded physical document to Supabase storage: {d['storage_path']}")
+            except Exception as storage_err:
+                logger.info(f"Storage upload note for {d['storage_path']}: {storage_err}")
 
     # 4. STRUCTURED CLINICAL DATA INGESTION
     logger.info("Persisting structured clinical entities (Diagnoses, Medications, Labs, Procedures, Follow-ups)...")

@@ -193,7 +193,7 @@ export function ConsentManager({ patientId, familyMembers = [] }: ConsentManager
             <QrCode className="h-4 w-4 text-teal-600" />
           </div>
           <div className="text-2xl font-bold text-slate-900">{activeSessionsCount}</div>
-          <p className="text-[11px] text-slate-500">Currently accessible doctor portal sessions</p>
+          <p className="text-[11px] text-slate-500">Currently active doctor access sessions</p>
         </div>
 
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-2xs space-y-1">
@@ -260,7 +260,7 @@ export function ConsentManager({ patientId, familyMembers = [] }: ConsentManager
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-teal-50 text-teal-700 border border-teal-200">
                 <QrCode className="h-6 w-6" />
               </div>
-              <h3 className="text-sm font-bold text-slate-800">No Doctor Access Sessions Created Yet</h3>
+              <h3 className="text-sm font-bold text-slate-800">No active access sessions.</h3>
               <p className="text-xs text-slate-500 max-w-md mx-auto">
                 Generate a temporary QR code with customized permissions to grant an attending doctor secure access to your clinical timeline and records.
               </p>
@@ -270,7 +270,7 @@ export function ConsentManager({ patientId, familyMembers = [] }: ConsentManager
                 className="bg-teal-600 hover:bg-teal-700 text-white text-xs h-9 font-semibold"
               >
                 <Plus className="mr-1.5 h-3.5 w-3.5" />
-                Generate First Access QR
+                Create Share Access
               </Button>
             </div>
           ) : (

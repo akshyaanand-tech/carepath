@@ -28,6 +28,22 @@ CarePath's database layer uses Supabase PostgreSQL with strict Row Level Securit
   - `public.document_extractions` (document_id, document_type, provider_name, raw_extraction JSONB)
 - Strict Row Level Security on all clinical tables isolating access by `patient_id` matching authenticated `auth.uid()`.
 
+### 4. `04_mismatches.sql` (Sprint 4: Clinical Mismatch Engine)
+- Initializes `public.cross_document_mismatches` table.
+- Stores cross-document discrepancies with bidirectional provenance and severity flags.
+- RLS isolating mismatch access to the owning patient.
+
+### 5. `05_family_consent.sql` (Sprint 5: Family Health Circles & QR Access)
+- Relaxes `user_id` constraint on `patients` to support dependents without direct login.
+- Initializes `public.family_groups` and `public.family_memberships` with independent medical records.
+- Initializes `public.consent_sessions` and `public.access_audit_logs`.
+- Strict RLS ensuring explicit permissions for family records and scoped temporary doctor access.
+
+### 6. `06_subscriptions_and_usage.sql` (Sprint 6: Freemium Subscriptions & AI Usage Limits)
+- Initializes `public.subscriptions` with plan tiers (`free`, `premium`, `trial`, `cancelled`, `expired`).
+- Initializes `public.ai_usage` tracking monthly server-side analysis counts per patient.
+- Strict RLS ensuring patient isolation and service-role updates.
+
 ---
 
 ## How to Apply Migrations
@@ -38,3 +54,6 @@ CarePath's database layer uses Supabase PostgreSQL with strict Row Level Securit
    - `database/migrations/01_patients.sql`
    - `database/migrations/02_documents.sql`
    - `database/migrations/03_clinical_records.sql`
+   - `database/migrations/04_mismatches.sql`
+   - `database/migrations/05_family_consent.sql`
+   - `database/migrations/06_subscriptions_and_usage.sql`

@@ -21,7 +21,7 @@ DATE:           September 2026
 | **Sprint 3** | FastAPI Ingestion & Multimodal AI Extraction | **Complete** | Structured Pydantic extraction, normalized DB persistence |
 | **Sprint 4** | Unified Timeline, Care Calendar, Mismatches | **Complete** | Chronological timeline, confirmed vs projected dates |
 | **Sprint 5** | Family Circles, QR Consent, Doctor Portal, Audit | **Accepted** | 12/12 security checks passed, capability token model |
-| **Sprint 6** | Final Demo Readiness, UI Polish & E2E Validation | **Complete** | Eleanor Vance synthetic dataset, 0 errors/warnings, E2E |
+| **Sprint 6** | AI Resiliency, Subscriptions & Demo Isolation | **Complete** | OpenAI/Gemini fallback, Razorpay sandbox, 20/20 tests |
 
 ---
 
@@ -33,27 +33,30 @@ DATE:           September 2026
 * **Authentication & Identity:** Supabase Auth (Cookie-based SSR session management via `@supabase/ssr`)
 * **Primary Database & Storage:** PostgreSQL 15 (Supabase), Row Level Security (RLS), S3-compatible Storage
 * **AI Intelligence Microservice:** FastAPI (Python 3.10+, Pydantic v2 schemas)
-* **AI Extraction Engine:** OpenAI (`gpt-4o-mini` with strict JSON Schema Structured Outputs)
-* **QR Capability Engine:** Node.js `qrcode` library with capability tokens (Zero patient data in QR)
+* **AI Extraction Engine:** OpenAI (`gpt-4o-mini`) with automatic fallback to Google Gemini (`gemini-1.5-flash`) on HTTP 429 quota exhaustion
+* **Payments & Monetization:** Razorpay sandbox with HMAC-SHA256 signature verification & server-side monthly quota enforcement
+* **QR Capability Engine:** Node.js `qrcode` library with capability tokens (`/share/[token]` least-privilege view)
 
 ---
 
 ## 🔐 Security & Governance Architecture
 
-1. **Row Level Security (RLS):** All clinical tables (`patients`, `documents`, `diagnoses`, `medications`, `investigations`, `procedures`, `follow_ups`, `cross_document_mismatches`, `family_groups`, `family_memberships`, `consent_sessions`, `access_audit_logs`) enforce strict `auth.uid() = user_id` tenant isolation.
+1. **Row Level Security (RLS):** All clinical tables (`patients`, `documents`, `diagnoses`, `medications`, `investigations`, `procedures`, `follow_ups`, `cross_document_mismatches`, `family_groups`, `family_memberships`, `consent_sessions`, `access_audit_logs`, `subscriptions`, `ai_usage`) enforce strict `auth.uid() = user_id` tenant isolation.
 2. **Family Member Isolation:** Dependents have separate patient identities. Cross-member access is blocked at the database and API layer unless explicit `can_view_records = true` permission is granted.
 3. **Cryptographic Capability Tokens:** Temporary QR doctor access sessions generate 256-bit URL-safe random capability tokens. Zero clinical facts, names, or passwords are embedded within the QR code.
-4. **Least-Privilege Scoping:** When a doctor accesses records via a token, the backend strictly filters returned fields to the consented scope (`timeline`, `medications`, `investigations`, `diagnoses`). Unconsented categories (documents, family circles) are completely omitted from the payload.
+4. **Least-Privilege Scoping:** When a doctor accesses records via `/share/[token]`, the backend strictly filters returned fields to the consented scope (`timeline`, `medications`, `investigations`, `diagnoses`). Unconsented categories are completely omitted from the payload.
 5. **Instant Server-Side Revocation:** Patients can revoke doctor access in one click, immediately returning HTTP 403 Forbidden on subsequent requests.
 6. **Immutable Audit Trail:** Append-only access audit logs record all session generations, provider access views, and patient revocations.
+7. **Demo Data Isolation:** Real patients start with a 100% clean slate. Targeted script (`cleanup_demo_data.py`) ensures demo personas never pollute production users.
 
 ---
 
 ## 🧠 Multimodal AI & Intelligence Engine
 
-1. **Deterministic Structured Extraction:** Multimodal processing extracts clinical entities with verbatim source text, page numbers, and reference ranges.
-2. **Predictive Care Calendar:** Deterministically calculates future milestones from relative narrative discharge notes (e.g. *"wound review in 2 weeks"* ➔ Jul 26; *"cardiometabolic review in 3 months"* ➔ Nov 15) while visually distinguishing Confirmed vs Projected dates.
-3. **Cross-Document Information Mismatch Engine:** Automatically flags contradictions across multiple healthcare providers (e.g. Apex Dental charting Tooth #36 vs Metropolis Oral Surgery referral citing Tooth #37). Prompts patient and doctor to *"Verify against original source"* with zero accusatory language.
+1. **Multi-Provider Fallback:** Intelligent document processing prioritizes OpenAI with seamless fallback to Google Gemini on rate limits or quota exhaustion. Never fabricates clinical entities.
+2. **Deterministic Structured Extraction:** Multimodal processing extracts clinical entities with verbatim source text, page numbers, and reference ranges.
+3. **Predictive Care Calendar:** Deterministically calculates future milestones from relative narrative discharge notes while visually distinguishing Confirmed vs Projected dates.
+4. **Cross-Document Information Mismatch Engine:** Automatically flags contradictions across multiple healthcare providers. Prompts patient and doctor to *"Verify against original source"* with zero accusatory language.
 
 ---
 
@@ -65,14 +68,16 @@ TEST / AUDIT SUITE                         RESULT      DETAILS
 ================================================================================
 1. TypeScript Compiler (npx tsc --noEmit)   PASS        0 errors, strict mode
 2. ESLint (npm run lint)                   PASS        0 errors, 0 warnings
-3. Next.js Production Build (next build)   PASS        14/14 routes compiled clean
-4. Backend Unit Tests (python unittest)    PASS        12/12 passed (0.242s)
+3. Next.js Production Build (next build)   PASS        16/16 routes compiled clean
+4. Backend Unit Tests (python unittest)    PASS        20/20 passed (0.131s)
 5. Patient Isolation Verification          PASS        Verified via RLS
 6. Family Isolation Verification           PASS        Verified via RLS & API
 7. Consent Scope Enforcement               PASS        Verified (Omitted unconsented)
 8. QR Capability Token Security            PASS        Verified (Opaque URL token)
 9. Instant Revocation Flow                 PASS        Verified (Immediate 403)
 10. Source Provenance Linking              PASS        Verified (Bidirectional modal)
+11. AI Fallback & Quota Limits             PASS        Verified (OpenAI -> Gemini fallback)
+12. Razorpay Signature Verification        PASS        Verified (HMAC-SHA256 rejection/approval)
 ================================================================================
 ```
 

@@ -167,7 +167,7 @@ export function QrModal({ session, onClose, onRevoke }: QrModalProps) {
               className="inline-flex items-center gap-1 text-teal-600 hover:underline font-medium"
             >
               <ExternalLink className="h-3 w-3" />
-              Open Doctor Portal Preview
+              Open Secure Share Preview
             </a>
 
             {onRevoke && session.status === "active" && (

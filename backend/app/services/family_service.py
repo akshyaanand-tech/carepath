@@ -21,6 +21,10 @@ class FamilyService:
     identity, medical records, timeline, and document storage.
     """
 
+    def __init__(self):
+        # Ephemeral demo permissions tracking (e.g. for Margaret Vance toggle)
+        self._demo_permissions: Dict[str, bool] = {"demo-mem-margaret": False}
+
     def get_family_dashboard(
         self,
         client: Client,
@@ -29,6 +33,7 @@ class FamilyService:
     ) -> FamilyDashboardResponse:
         """
         Retrieves all family groups the user created or belongs to, along with member profiles.
+        NEW PATIENTS START WITH ZERO FAMILY MEMBERS. Never inject synthetic demo data automatically.
         """
         try:
             # 1. Fetch groups created by user OR where patient is a member
@@ -98,68 +103,11 @@ class FamilyService:
                     )
 
             return FamilyDashboardResponse(groups=group_items, patient_id=patient_id)
-        except Exception as e:
-            logger.warning(f"Could not load family groups from database ({str(e)}). Providing synthetic Vance Household fallback.")
-            owner_name = "Eleanor Vance"
-            try:
-                p_res = client.from_("patients").select("id, full_name").eq("id", patient_id).maybe_single().execute()
-                if p_res.data and p_res.data.get("full_name"):
-                    owner_name = p_res.data["full_name"]
-            except Exception:
-                pass
 
-            demo_group = FamilyGroupItem(
-                id="demo-vance-household-circle",
-                name="Vance Household",
-                created_by=user_id,
-                is_owner=True,
-                members=[
-                    FamilyMemberProfile(
-                        id="demo-mem-eleanor",
-                        patient_id=patient_id,
-                        full_name=owner_name,
-                        date_of_birth="1984-06-14",
-                        gender="Female",
-                        phone="+1-555-019-2834",
-                        relationship="Primary Account Holder",
-                        role="owner",
-                        can_view_records=True,
-                        access_status="active",
-                        is_current_user=True,
-                        created_at="2026-09-01T00:00:00Z",
-                    ),
-                    FamilyMemberProfile(
-                        id="demo-mem-lucas",
-                        patient_id="demo-patient-lucas-vance",
-                        full_name="Lucas Vance",
-                        date_of_birth="2015-03-22",
-                        gender="Male",
-                        phone="+1-555-019-2835",
-                        relationship="Child",
-                        role="member",
-                        can_view_records=True,
-                        access_status="active",
-                        is_current_user=False,
-                        created_at="2026-09-01T00:00:00Z",
-                    ),
-                    FamilyMemberProfile(
-                        id="demo-mem-margaret",
-                        patient_id="demo-patient-margaret-vance",
-                        full_name="Margaret Vance",
-                        date_of_birth="1952-11-09",
-                        gender="Female",
-                        phone="+1-555-019-2836",
-                        relationship="Parent",
-                        role="member",
-                        can_view_records=False,
-                        access_status="active",
-                        is_current_user=False,
-                        created_at="2026-09-01T00:00:00Z",
-                    ),
-                ],
-                created_at="2026-09-01T00:00:00Z",
-            )
-            return FamilyDashboardResponse(groups=[demo_group], patient_id=patient_id)
+        except Exception as e:
+            logger.warning(f"Could not load family groups from database ({str(e)}). Returning empty family list for real patient.")
+            # REAL PATIENT MUST START EMPTY: Zero synthetic members injected on error or fresh database
+            return FamilyDashboardResponse(groups=[], patient_id=patient_id)
 
     def create_family_group(
         self,
@@ -176,11 +124,11 @@ class FamilyService:
             grp_res = (
                 client.from_("family_groups")
                 .insert({"name": name.strip(), "created_by": user_id})
-                .select()
-                .single()
                 .execute()
             )
-            group_data = grp_res.data
+            if not grp_res.data:
+                raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to create family group.")
+            group_data = grp_res.data[0]
             group_id = group_data["id"]
 
             # 2. Add creator as owner member
@@ -194,15 +142,15 @@ class FamilyService:
                     "can_view_records": True,
                     "access_status": "active",
                 })
-                .select()
-                .single()
                 .execute()
             )
-            mem_data = mem_res.data
+            if not mem_res.data:
+                raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to initialize owner membership.")
+            mem_data = mem_res.data[0]
 
             # 3. Retrieve creator patient details
-            p_res = client.from_("patients").select("*").eq("id", patient_id).single().execute()
-            p_data = p_res.data
+            p_res = client.from_("patients").select("*").eq("id", patient_id).maybe_single().execute()
+            p_data = p_res.data or {}
 
             creator_member = FamilyMemberProfile(
                 id=mem_data["id"],
@@ -227,6 +175,8 @@ class FamilyService:
                 members=[creator_member],
                 created_at=group_data["created_at"],
             )
+        except HTTPException:
+            raise
         except Exception as e:
             logger.error(f"Error creating family group '{name}': {str(e)}")
             raise HTTPException(
@@ -266,11 +216,11 @@ class FamilyService:
                     "gender": req.gender or None,
                     "phone": req.phone or None,
                 })
-                .select()
-                .single()
                 .execute()
             )
-            new_patient = new_p_res.data
+            if not new_p_res.data:
+                raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to create dependent patient profile.")
+            new_patient = new_p_res.data[0]
             new_patient_id = new_patient["id"]
 
             # 3. Insert membership linking the new patient to the group
@@ -284,11 +234,11 @@ class FamilyService:
                     "can_view_records": req.can_view_records,
                     "access_status": "active",
                 })
-                .select()
-                .single()
                 .execute()
             )
-            mem_data = mem_res.data
+            if not mem_res.data:
+                raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to create family membership.")
+            mem_data = mem_res.data[0]
 
             return FamilyMemberProfile(
                 id=mem_data["id"],
@@ -325,6 +275,8 @@ class FamilyService:
         Only group owner or the member themselves can update.
         """
         if membership_id.startswith("demo-mem-"):
+            if req.can_view_records is not None:
+                self._demo_permissions[membership_id] = req.can_view_records
             return {
                 "id": membership_id,
                 "can_view_records": req.can_view_records if req.can_view_records is not None else True,
@@ -358,11 +310,9 @@ class FamilyService:
                 client.from_("family_memberships")
                 .update(update_data)
                 .eq("id", membership_id)
-                .select()
-                .single()
                 .execute()
             )
-            return res.data
+            return res.data[0] if res.data else mem
         except HTTPException:
             raise
         except Exception as e:
@@ -384,39 +334,46 @@ class FamilyService:
         Returns True if:
         1. requester_patient_id == target_patient_id (accessing own records)
         2. requester belongs to a family group where target_patient_id has can_view_records=True AND access_status='active'.
-        Otherwise returns False.
+        Otherwise returns False (403 Forbidden).
         """
+        # Rule 1: Patient can always view their own health records
         if requester_patient_id == target_patient_id:
             return True
 
+        # Rule 2: Explicit demo dependent check
         if target_patient_id == "demo-patient-lucas-vance":
             return True
         if target_patient_id == "demo-patient-margaret-vance":
-            return False
+            # Dynamic check based on whether user toggled permission in demo session
+            return self._demo_permissions.get("demo-mem-margaret", False)
 
-        # Check family authorization
-        res = (
-            client.from_("family_memberships")
-            .select("id, family_group_id, can_view_records, access_status")
-            .eq("patient_id", target_patient_id)
-            .eq("can_view_records", True)
-            .eq("access_status", "active")
-            .execute()
-        )
-        target_grps = [row["family_group_id"] for row in (res.data or [])]
-        if not target_grps:
-            return False
+        # Rule 3: Database check for real family groups
+        try:
+            res = (
+                client.from_("family_memberships")
+                .select("id, family_group_id, can_view_records, access_status")
+                .eq("patient_id", target_patient_id)
+                .eq("can_view_records", True)
+                .eq("access_status", "active")
+                .execute()
+            )
+            target_grps = [row["family_group_id"] for row in (res.data or [])]
+            if not target_grps:
+                return False
 
-        # Check if requester is in any of those groups
-        my_res = (
-            client.from_("family_memberships")
-            .select("id")
-            .in_("family_group_id", target_grps)
-            .eq("patient_id", requester_patient_id)
-            .eq("access_status", "active")
-            .execute()
-        )
-        return bool(my_res.data)
+            # Check if requester is in any of those groups
+            my_res = (
+                client.from_("family_memberships")
+                .select("id")
+                .in_("family_group_id", target_grps)
+                .eq("patient_id", requester_patient_id)
+                .eq("access_status", "active")
+                .execute()
+            )
+            return bool(my_res.data)
+        except Exception as e:
+            logger.warning(f"Error checking family view permission in database: {str(e)}")
+            return False
 
 
 family_service = FamilyService()

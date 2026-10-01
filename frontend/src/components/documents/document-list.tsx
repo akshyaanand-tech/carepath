@@ -280,7 +280,7 @@ export function DocumentList({
             <FolderOpen className="h-6 w-6" />
           </div>
           <div className="space-y-1">
-            <h4 className="text-sm font-semibold text-slate-800">Your Medical Vault is Empty</h4>
+            <h4 className="text-sm font-semibold text-slate-800">No documents uploaded yet.</h4>
             <p className="text-xs text-slate-500 max-w-md mx-auto">
               No medical documents have been uploaded yet. Upload your first lab report, prescription,
               or discharge summary above to initiate your record.

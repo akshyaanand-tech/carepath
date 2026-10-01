@@ -33,6 +33,7 @@ export interface MedicalDocument {
   processing_status: DocumentProcessingStatus;
   uploaded_at: string;
   updated_at: string;
+  signed_url?: string | null;
 }
 
 export type MedicalDocumentInsert = {
@@ -326,16 +327,25 @@ export interface ScopedClinicalItem {
   name?: string;
   title?: string;
   dose?: string;
+  dosage?: string;
   route?: string;
   frequency?: string;
   duration?: string;
   instructions?: string;
   result?: string;
+  result_value?: string;
   unit?: string;
   reference_range?: string;
   abnormal_flag?: boolean;
   status?: string;
   date?: string;
+  medication_name?: string;
+  test_name?: string;
+  condition_name?: string;
+  diagnosis_date?: string;
+  procedure_name?: string;
+  procedure_date?: string;
+  description?: string;
 }
 
 export interface FamilyMemberClinicalRecords {

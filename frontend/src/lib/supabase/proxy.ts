@@ -58,7 +58,8 @@ export async function updateSession(request: NextRequest) {
     pathname.startsWith("/timeline") ||
     pathname.startsWith("/calendar") ||
     pathname.startsWith("/family") ||
-    pathname.startsWith("/consent");
+    pathname.startsWith("/consent") ||
+    pathname.startsWith("/subscription");
   const isAuthPath = pathname === "/login" || pathname === "/register";
 
   // Redirect unauthenticated users trying to access protected paths

@@ -27,7 +27,8 @@ Modern healthcare interactions produce fragmented, heterogeneous records stored 
 | **Backend API** | FastAPI, Python | High-performance asynchronous API, deterministic business logic, data validation (Pydantic), orchestrating AI pipelines. |
 | **Database & Auth** | Supabase (PostgreSQL), Supabase Auth, Row Level Security (RLS) | Relational medical data storage, relational integrity, row-level tenant isolation, JWT authentication. |
 | **Storage** | Supabase Storage | Encrypted, bucket-based medical document and asset storage with signed access URLs. |
-| **AI & Document Intelligence** | OpenAI API (Multimodal LLMs) | Document comprehension, multimodal extraction of structured JSON, medical jargon explanation, discrepancy analysis. |
+| **AI & Document Intelligence** | OpenAI & Google Gemini (Fallback) | Multimodal document comprehension, strict structured JSON extraction, controlled fallback on 429 quota exhaustion. |
+| **Payments & Monetization** | Razorpay (Sandbox) | Tiered subscriptions (Free vs Premium), HMAC-SHA256 signature verification, server-side AI quota enforcement. |
 | **Version Control & Dev** | Git, GitHub, Antigravity | Version control, branch workflows, and AI pair programming platform. |
 
 ---
@@ -140,7 +141,7 @@ The implementation strategy consolidates related architectural milestones into c
 | **Sprint 3** | **Phases 6 + 7 + 8** | **FastAPI Ingestion & AI Clinical Extraction**<br>FastAPI Python backend, OpenAI multimodal document analysis, validated Pydantic schemas, normalization of medications, conditions, and lab values. | **Complete & Verified** |
 | **Sprint 4** | **Phases 9 + 10 + 11 + 12** | **Unified Health Journey Intelligence**<br>Chronological visual timeline (`/timeline`), AI health calendar (`/calendar`), deterministic date projection vs confirmed dates, bidirectional source linking with page-level PDF inspection, cross-document information mismatch engine. | **Complete & Verified** |
 | **Sprint 5** | **Phases 13 + 14 + 15 + 16 + 17** | **Doctor Access, Family Management & Final Polish**<br>Time-bound QR consent sessions, read-only clinician portal, multi-dependent family vaults, end-to-end security audit, and synthetic datasets. | **Complete & Verified** |
-| **Sprint 6** | **Phase 18 + Final E2E** | **Final Demo Readiness, UI Polish & End-to-End Validation**<br>Eleanor Vance coherent synthetic dataset, 6-pillar dashboard story, zero-error/warning automated quality gates (TypeScript, ESLint, Next.js build, 12/12 backend tests), live demo guide. | **Complete & Accepted** |
+| **Sprint 6** | **Phase 18 + AI Resiliency & Subscriptions** | **AI Fallback, Freemium Subscriptions, UI Polish & Final E2E**<br>OpenAI/Gemini controlled fallback on 429 quota exhaustion, Razorpay sandbox checkout & HMAC verification, server-side monthly AI usage limits, Eleanor Vance dataset & clean demo isolation, 16/16 Next.js routes, 20/20 backend tests. | **Complete & Accepted** |
 
 > **Architecture Status:** FROZEN. v1.0 Production Demo Ready. Zero major architectural revisions or new dependencies permitted.
 

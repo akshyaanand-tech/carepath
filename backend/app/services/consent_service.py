@@ -105,11 +105,14 @@ class ConsentService:
                 "status": "active",
                 "created_by": user_id,
             })
-            .select()
-            .single()
             .execute()
         )
-        session_data = res.data
+        if not res.data:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to persist consent session in database.",
+            )
+        session_data = res.data[0]
 
         # Fetch patient display name
         p_res = client.from_("patients").select("full_name").eq("id", target_patient_id).maybe_single().execute()
@@ -128,7 +131,7 @@ class ConsentService:
             ),
         )
 
-        qr_url = f"{base_url.rstrip('/')}/doctor/access?token={access_token}"
+        qr_url = f"{base_url.rstrip('/')}/share/{access_token}"
 
         return ConsentSessionItem(
             id=session_data["id"],
@@ -176,7 +179,7 @@ class ConsentService:
                     current_status = "expired"
                     client.from_("consent_sessions").update({"status": "expired"}).eq("id", s["id"]).execute()
 
-                qr_url = f"{base_url.rstrip('/')}/doctor/access?token={s['access_token']}"
+                qr_url = f"{base_url.rstrip('/')}/share/{s['access_token']}"
                 patient_name = s.get("patients", {}).get("full_name") if s.get("patients") else "Patient"
 
                 items.append(
@@ -198,24 +201,8 @@ class ConsentService:
 
             return ConsentSessionListResponse(sessions=items)
         except Exception as e:
-            logger.warning(f"Could not load consent sessions from database ({str(e)}). Providing synthetic Dr. Sarah Jenkins session.")
-            is_revoked = "demo_dr_jenkins_capability_token" in self._revoked_demo_tokens
-            now_utc = datetime.now(timezone.utc)
-            demo_session = ConsentSessionItem(
-                id="demo-dr-jenkins-session-id",
-                patient_id=patient_id,
-                patient_name="Eleanor Vance",
-                recipient_name="Dr. Sarah Jenkins - General Hospital Emergency Dept",
-                access_token="demo_dr_jenkins_capability_token",
-                qr_access_url=f"{base_url.rstrip('/')}/doctor/access?token=demo_dr_jenkins_capability_token",
-                scope=["timeline", "medications", "investigations", "diagnoses"],
-                duration_minutes=120,
-                expires_at=(now_utc + timedelta(hours=2)).isoformat(),
-                revoked_at=now_utc.isoformat() if is_revoked else None,
-                status="revoked" if is_revoked else "active",
-                created_at="2026-09-29T12:00:00Z",
-            )
-            return ConsentSessionListResponse(sessions=[demo_session])
+            logger.warning(f"Could not load consent sessions from database ({str(e)}). Returning empty session list.")
+            return ConsentSessionListResponse(sessions=[])
 
     def revoke_consent_session(
         self,
@@ -265,6 +252,8 @@ class ConsentService:
             )
 
         now_iso = datetime.now(timezone.utc).isoformat()
+        if session.get("access_token"):
+            self._revoked_demo_tokens.add(session["access_token"])
 
         # 2. Update status and revoked_at
         client.from_("consent_sessions").update({
@@ -455,8 +444,24 @@ class ConsentService:
 
         documents_data = None
         if "documents" in scope:
-            doc_res = client.from_("documents").select("id, file_name, file_type, document_type, uploaded_at").eq("patient_id", patient_id).execute()
-            documents_data = doc_res.data or []
+            doc_res = client.from_("documents").select("id, file_name, file_type, document_type, uploaded_at, storage_path").eq("patient_id", patient_id).execute()
+            documents_data = []
+            for d in (doc_res.data or []):
+                doc_item = {
+                    "id": d["id"],
+                    "file_name": d["file_name"],
+                    "file_type": d["file_type"],
+                    "document_type": d.get("document_type", "general"),
+                    "uploaded_at": d["uploaded_at"],
+                }
+                if d.get("storage_path"):
+                    try:
+                        s_res = client.storage.from_("medical-documents").create_signed_url(d["storage_path"], 300)
+                        if isinstance(s_res, dict):
+                            doc_item["signed_url"] = s_res.get("signedUrl") or s_res.get("signedURL")
+                    except Exception as s_err:
+                        logger.warning(f"Could not generate signed URL for scoped doc {d['id']}: {s_err}")
+                documents_data.append(doc_item)
 
         return DoctorAccessResponse(
             session_id=session["id"],
