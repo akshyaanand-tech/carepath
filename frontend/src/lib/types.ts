@@ -358,3 +358,59 @@ export interface FamilyMemberClinicalRecords {
   documents?: MedicalDocument[];
 }
 
+// ==============================================================================
+// AI DOCTOR / HEALTH ASSISTANT TYPES
+// ==============================================================================
+
+export interface AIDoctorSourceReference {
+  document_id: string;
+  document_name: string;
+  document_type?: string | null;
+  date?: string | null;
+  relevance_note?: string | null;
+}
+
+export interface AIDoctorOTCMedicine {
+  name: string;
+  dosage?: string | null;
+  when?: string | null;
+  warning?: string | null;
+}
+
+export interface AIDoctorResponse {
+  urgency: "green" | "yellow" | "orange" | "red";
+  urgency_label: string;
+  reply: string;
+  possible_causes: string[];
+  what_to_do: string[];
+  home_remedies: string[];
+  otc_medicines: AIDoctorOTCMedicine[];
+  precautions: string[];
+  when_to_rush: string[];
+  doctor_type?: string | null;
+  sources_used: AIDoctorSourceReference[];
+  follow_up_questions: string[];
+  safety_alert?: string | null;
+  safety_violations?: string[] | null;
+  patient_name?: string | null;
+  patient_id?: string | null;
+}
+
+export interface AIDoctorChatMessage {
+  id: string;
+  role: "user" | "ai";
+  text: string;
+  data?: AIDoctorResponse;
+  feedback?: "up" | "down";
+  timestamp: string;
+}
+
+export interface AIDoctorFeedbackPayload {
+  message_id: string;
+  rating: "up" | "down";
+  comment?: string;
+  user_message?: string;
+  ai_response?: string;
+}
+
+

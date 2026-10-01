@@ -18,6 +18,7 @@ import {
   ShieldAlert,
   Sparkles,
   ExternalLink,
+  Stethoscope,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -169,9 +170,15 @@ export default async function DashboardPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <Link href="/ai-doctor">
+            <Button size="sm" className="bg-teal-700 hover:bg-teal-800 text-white text-xs shadow-xs flex items-center gap-1.5" id="dashboard-ai-doctor-btn">
+              <Stethoscope className="h-3.5 w-3.5" />
+              Dr. CarePath AI
+            </Button>
+          </Link>
           <Link href="/documents">
-            <Button size="sm" className="bg-teal-600 hover:bg-teal-700 text-white text-xs shadow-xs" id="dashboard-upload-btn">
-              <UploadCloud className="mr-1.5 h-3.5 w-3.5" />
+            <Button size="sm" variant="outline" className="text-xs border-teal-300 text-teal-800 bg-teal-50/60 hover:bg-teal-100" id="dashboard-upload-btn">
+              <UploadCloud className="mr-1.5 h-3.5 w-3.5 text-teal-600" />
               Upload Document
             </Button>
           </Link>

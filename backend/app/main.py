@@ -2,7 +2,7 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
-from app.api.routes import health, documents, intelligence, family, consent, doctor, subscription
+from app.api.routes import health, documents, intelligence, family, consent, doctor, subscription, ai_doctor
 
 # Configure structured logging
 logging.basicConfig(
@@ -39,6 +39,7 @@ app.include_router(family.router)
 app.include_router(consent.router)
 app.include_router(doctor.router)
 app.include_router(subscription.router)
+app.include_router(ai_doctor.router)
 
 
 @app.get("/")
@@ -57,6 +58,7 @@ def root():
             "consent": "/api/consent",
             "doctor": "/api/doctor",
             "subscription": "/api/subscription",
+            "ai_doctor": "/api/ai-doctor",
         },
         "status": "online",
     }

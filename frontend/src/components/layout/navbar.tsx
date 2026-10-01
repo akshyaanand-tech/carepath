@@ -15,12 +15,14 @@ import {
   X,
   Sparkles,
   CreditCard,
+  Stethoscope,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { NavAuth } from "@/components/layout/nav-auth";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/ai-doctor", label: "AI Doctor", icon: Stethoscope },
   { href: "/timeline", label: "Health Timeline", icon: Clock },
   { href: "/calendar", label: "Care Calendar", icon: Calendar },
   { href: "/documents", label: "Documents", icon: FolderOpen },
