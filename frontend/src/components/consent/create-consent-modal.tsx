@@ -92,7 +92,7 @@ export function CreateConsentModal({
             <span className="text-[10px] font-bold uppercase tracking-wider text-teal-700 bg-teal-50 px-2 py-0.5 rounded-md border border-teal-200">
               Least-Privilege Sharing
             </span>
-            <h3 className="text-lg font-bold text-slate-900 mt-1">Share Health Information</h3>
+            <h3 className="text-lg font-bold text-slate-900 mt-1">Share with Doctor</h3>
             <p className="text-xs text-slate-500">Create a time-bound QR code for an attending healthcare provider</p>
           </div>
           <button
@@ -113,7 +113,7 @@ export function CreateConsentModal({
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Recipient Doctor / Clinic */}
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-slate-700">Recipient Doctor or Clinic Name</label>
+            <label className="text-xs font-semibold text-slate-700">Recipient (Doctor Name)</label>
             <input
               type="text"
               required
@@ -148,7 +148,7 @@ export function CreateConsentModal({
           {/* Scopes Selection */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-semibold text-slate-700">Select Data Scope to Authorize</label>
+              <label className="text-xs font-semibold text-slate-700">Access (Permitted Information Scope)</label>
               <span className="text-[11px] text-slate-500">Only checked data will be visible</span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -183,7 +183,7 @@ export function CreateConsentModal({
 
           {/* Duration Options */}
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-slate-700">Access Duration (Auto-Expires)</label>
+            <label className="text-xs font-semibold text-slate-700">Duration (Auto-Expires)</label>
             <div className="grid grid-cols-3 gap-2">
               {DURATION_OPTIONS.map((dur) => {
                 const selected = durationMinutes === dur.minutes;
@@ -232,7 +232,7 @@ export function CreateConsentModal({
               ) : (
                 <>
                   <Sparkles className="mr-1.5 h-3.5 w-3.5" />
-                  Generate Temporary QR
+                  Generate Secure QR
                 </>
               )}
             </Button>

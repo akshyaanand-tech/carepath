@@ -13,6 +13,37 @@ const BACKEND_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL ||
   "http://localhost:8000";
 
+/**
+ * Returns configured public app URL (e.g. for real mobile phone scanning or deployment).
+ */
+export function getPublicAppUrl(): string {
+  const envUrl = process.env.NEXT_PUBLIC_APP_URL;
+  if (envUrl && envUrl.trim()) {
+    return envUrl.trim().replace(/\/+$/, "");
+  }
+  if (typeof window !== "undefined" && window.location?.origin) {
+    return window.location.origin.replace(/\/+$/, "");
+  }
+  return "http://localhost:3000";
+}
+
+/**
+ * Formats the public QR share URL, prioritizing NEXT_PUBLIC_APP_URL over localhost.
+ */
+export function formatShareUrl(accessToken: string, serverQrUrl?: string): string {
+  const publicAppUrl = process.env.NEXT_PUBLIC_APP_URL;
+  if (publicAppUrl && publicAppUrl.trim()) {
+    return `${publicAppUrl.trim().replace(/\/+$/, "")}/share/${encodeURIComponent(accessToken)}`;
+  }
+  if (serverQrUrl && !serverQrUrl.includes("localhost:3000")) {
+    return serverQrUrl;
+  }
+  if (typeof window !== "undefined" && window.location?.origin) {
+    return `${window.location.origin.replace(/\/+$/, "")}/share/${encodeURIComponent(accessToken)}`;
+  }
+  return serverQrUrl || `http://localhost:3000/share/${encodeURIComponent(accessToken)}`;
+}
+
 async function getAuthHeader(supabase: SupabaseClient): Promise<{ Authorization: string } | null> {
   const {
     data: { session },
@@ -37,11 +68,14 @@ export async function createConsentSession(
       return { data: null, error: new Error("Authentication required.") };
     }
 
+    const publicAppUrl = getPublicAppUrl();
+
     const response = await fetch(`${BACKEND_URL}/api/consent`, {
       method: "POST",
       headers: {
         ...authHeader,
         "Content-Type": "application/json",
+        "x-app-url": publicAppUrl,
       },
       body: JSON.stringify(req),
     });
@@ -55,6 +89,7 @@ export async function createConsentSession(
     }
 
     const data: ConsentSessionItem = await response.json();
+    data.qr_access_url = formatShareUrl(data.access_token, data.qr_access_url);
     return { data, error: null };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Failed to create consent session.";
@@ -91,6 +126,12 @@ export async function fetchConsentSessions(
     }
 
     const data: ConsentSessionListResponse = await response.json();
+    if (data.sessions && Array.isArray(data.sessions)) {
+      data.sessions = data.sessions.map((s) => ({
+        ...s,
+        qr_access_url: formatShareUrl(s.access_token, s.qr_access_url),
+      }));
+    }
     return { data, error: null };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Failed to load consent sessions.";
@@ -174,6 +215,8 @@ export async function fetchAccessAuditLogs(
 /**
  * Validates doctor access token and returns consented clinical data.
  * Unauthenticated endpoint: capability token is the authorization.
+ * If called from browser, utilizes local Next.js Route Handler to prevent
+ * CORS, port 8000 reachability, and localhost issues on real mobile devices.
  */
 export async function fetchDoctorAccess(
   token: string
@@ -184,7 +227,12 @@ export async function fetchDoctorAccess(
       return { data: null, error: new Error("Doctor access token is required.") };
     }
 
-    const response = await fetch(`${BACKEND_URL}/api/doctor/access/${encodeURIComponent(cleanToken)}`, {
+    const url =
+      typeof window !== "undefined"
+        ? `/api/doctor/access/${encodeURIComponent(cleanToken)}`
+        : `${BACKEND_URL}/api/doctor/access/${encodeURIComponent(cleanToken)}`;
+
+    const response = await fetch(url, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",

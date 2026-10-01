@@ -17,7 +17,11 @@ async def validate_doctor_access(token: str, request: Request):
     Returns data strictly limited to the consented scope.
     """
     admin_client = get_supabase_admin()
-    ip_addr = request.client.host if request.client else None
+    forwarded_for = request.headers.get("x-forwarded-for")
+    if forwarded_for:
+        ip_addr = forwarded_for.split(",")[0].strip()
+    else:
+        ip_addr = request.client.host if request.client else None
 
     logger.info(f"Doctor access validation requested for token prefix: {token[:8]}...")
     return consent_service.validate_doctor_access(

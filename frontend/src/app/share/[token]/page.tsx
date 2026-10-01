@@ -155,28 +155,55 @@ export default function ShareTokenPage({ params }: PageProps) {
         )}
 
         {error && !loading && (
-          <div className="rounded-2xl border border-red-200 bg-white p-8 text-center space-y-4 shadow-xs">
+          <div className="rounded-2xl border border-red-200 bg-white p-6 sm:p-8 text-center space-y-4 shadow-xs">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-50 text-red-600 border border-red-200 mx-auto">
               <AlertTriangle className="h-6 w-6" />
             </div>
-            <div className="space-y-1">
-              <h3 className="text-base font-bold text-red-950">Access Denied or Session Expired</h3>
-              <p className="text-xs text-red-700 max-w-md mx-auto font-medium">{error}</p>
+            <div className="space-y-2">
+              <h3 className="text-base font-bold text-red-950">
+                {error.toLowerCase().includes("expired")
+                  ? "Access Session Expired"
+                  : error.toLowerCase().includes("revoked")
+                  ? "Access Session Revoked"
+                  : "Access Denied"}
+              </h3>
+              <p className="text-xs sm:text-sm text-red-700 max-w-md mx-auto font-medium">
+                {error.toLowerCase().includes("expired")
+                  ? "This CarePath sharing session has expired. Please ask the patient to generate a new QR code."
+                  : error}
+              </p>
             </div>
             <p className="text-xs text-slate-500 max-w-md mx-auto">
-              This QR code session may have been revoked by the patient, reached its configured expiration limit, or contains an invalid capability token. Please ask the patient to generate a new QR code from their CarePath app.
+              {error.toLowerCase().includes("expired")
+                ? "For patient privacy and least-privilege security, all temporary clinical access sessions auto-expire once their duration limit elapses."
+                : "This QR code session may have been revoked by the patient, reached its configured expiration limit, or contains an invalid capability token. Please ask the patient to generate a new QR code from their CarePath app."}
             </p>
           </div>
         )}
 
         {data && !loading && (
-          <div className="space-y-6">
+          <div className="space-y-5">
+            {/* Live Expiration Notice if countdown reached zero while open */}
+            {secondsRemaining <= 0 && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-900 flex items-start gap-2.5 shadow-2xs">
+                <Clock className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                <div className="space-y-0.5">
+                  <p className="font-semibold text-amber-950">
+                    This CarePath sharing session has expired. Please ask the patient to generate a new QR code.
+                  </p>
+                  <p className="text-amber-700 text-[11px]">
+                    The temporary duration granted by the patient has elapsed.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Session Verification Card */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-2xs space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-6 shadow-2xs space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
                 <div>
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Attending Recipient</span>
-                  <h2 className="text-lg font-bold text-slate-900">{data.recipient_name}</h2>
+                  <h2 className="text-base sm:text-lg font-bold text-slate-900">{data.recipient_name}</h2>
                   <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-600">
                     <span>Patient:</span>
                     <strong className="text-slate-900 font-semibold">{data.patient_name}</strong>
@@ -205,11 +232,11 @@ export default function ShareTokenPage({ params }: PageProps) {
               </div>
 
               {/* Scope pill tags */}
-              <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
-                <span className="text-[11px] font-semibold text-slate-500">Authorized Scopes:</span>
+              <div className="flex flex-wrap items-center gap-1.5 pt-1 text-xs">
+                <span className="text-[11px] font-semibold text-slate-500 mr-1">Authorized Scopes:</span>
                 {data.scope.map((s) => (
-                  <Badge key={s} variant="outline" className="text-[10px] uppercase font-semibold bg-slate-50 text-slate-700 border-slate-200">
-                    {s}
+                  <Badge key={s} variant="outline" className="text-[10px] uppercase font-semibold bg-teal-50/70 text-teal-800 border-teal-200">
+                    {s.replace("_", " ")}
                   </Badge>
                 ))}
               </div>

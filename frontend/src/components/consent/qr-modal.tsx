@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
-import { X, Copy, Check, QrCode as QrIcon, Clock, ShieldCheck, ExternalLink, AlertCircle } from "lucide-react";
+import { X, Copy, Check, QrCode as QrIcon, Clock, ShieldCheck, ExternalLink, AlertCircle, Ban } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ConsentSessionItem } from "@/lib/types";
+import { formatShareUrl } from "@/lib/services/consent";
 
 interface QrModalProps {
   session: ConsentSessionItem;
@@ -17,10 +18,14 @@ export function QrModal({ session, onClose, onRevoke }: QrModalProps) {
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [generating, setGenerating] = useState(true);
+  const [isRevoking, setIsRevoking] = useState(false);
+
+  // Compute public share URL with priority for NEXT_PUBLIC_APP_URL
+  const shareUrl = formatShareUrl(session.access_token, session.qr_access_url);
 
   useEffect(() => {
     let isMounted = true;
-    QRCode.toDataURL(session.qr_access_url, {
+    QRCode.toDataURL(shareUrl, {
       width: 280,
       margin: 2,
       color: {
@@ -42,15 +47,23 @@ export function QrModal({ session, onClose, onRevoke }: QrModalProps) {
     return () => {
       isMounted = false;
     };
-  }, [session.qr_access_url]);
+  }, [shareUrl]);
 
   const copyLink = async () => {
     try {
-      await navigator.clipboard.writeText(session.qr_access_url);
+      await navigator.clipboard.writeText(shareUrl);
       setCopied(true);
       setTimeout(() => setCopied(false), 2500);
     } catch {
       // Fallback
+    }
+  };
+
+  const handleRevokeClick = () => {
+    if (!onRevoke) return;
+    if (confirm("Are you sure you want to revoke this doctor access session immediately? Any further attempts to use this QR code or link will be denied.")) {
+      setIsRevoking(true);
+      onRevoke(session.id);
     }
   };
 
@@ -140,11 +153,12 @@ export function QrModal({ session, onClose, onRevoke }: QrModalProps) {
 
         {/* Copy Link & Direct Doctor Portal Access */}
         <div className="space-y-2">
+          <label className="text-xs font-semibold text-slate-700 block">Doctor Share Link</label>
           <div className="flex items-center gap-2">
             <input
               type="text"
               readOnly
-              value={session.qr_access_url}
+              value={shareUrl}
               className="flex-1 rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-xs font-mono text-slate-700 select-all"
             />
             <Button
@@ -161,32 +175,45 @@ export function QrModal({ session, onClose, onRevoke }: QrModalProps) {
 
           <div className="flex items-center justify-between text-[11px] pt-1 text-slate-500">
             <a
-              href={session.qr_access_url}
+              href={shareUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-teal-600 hover:underline font-medium"
             >
               <ExternalLink className="h-3 w-3" />
-              Open Secure Share Preview
+              Open Doctor View
             </a>
-
-            {onRevoke && session.status === "active" && (
-              <button
-                type="button"
-                onClick={() => onRevoke(session.id)}
-                className="text-red-600 hover:underline font-medium"
-              >
-                Revoke Access Immediately
-              </button>
-            )}
           </div>
         </div>
+
+        {/* Safety Warning Message */}
+        <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-3 text-xs text-amber-900 flex items-start gap-2.5">
+          <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+          <p className="leading-relaxed">
+            Share only with your intended healthcare provider. Access expires automatically and can be revoked at any time.
+          </p>
+        </div>
+
+        {/* Revoke Access Button */}
+        {session.status === "active" && onRevoke && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={isRevoking}
+            onClick={handleRevokeClick}
+            className="w-full text-xs h-9 border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800 font-semibold"
+          >
+            <Ban className="mr-1.5 h-3.5 w-3.5 text-red-600" />
+            {isRevoking ? "Revoking Access..." : "Revoke Access"}
+          </Button>
+        )}
 
         {/* Security Watermark */}
         <div className="rounded-xl bg-slate-100 p-2.5 text-[11px] text-slate-600 flex items-start gap-2 border border-slate-200">
           <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
           <span>
-            <strong>Zero Data in QR:</strong> This QR contains only a cryptographically opaque access token. No medical facts, diagnoses, or credentials are encoded.
+            <strong>Zero Health Data in QR:</strong> This QR contains only a cryptographically opaque access token. No medical facts, diagnoses, or credentials are encoded.
           </span>
         </div>
       </div>

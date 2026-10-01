@@ -309,12 +309,21 @@ class ConsentService:
         try:
             res = (
                 client.from_("consent_sessions")
-                .select("*, patients(*)")
+                .select("*")
                 .eq("access_token", clean_token)
                 .maybe_single()
                 .execute()
             )
             session = res.data
+            if session and session.get("patient_id"):
+                p_res = (
+                    client.from_("patients")
+                    .select("id, full_name, date_of_birth, gender, phone")
+                    .eq("id", session["patient_id"])
+                    .maybe_single()
+                    .execute()
+                )
+                session["patients"] = p_res.data or {}
         except Exception as e:
             logger.warning(f"Could not query consent_sessions from database: {e}")
 
@@ -344,7 +353,7 @@ class ConsentService:
         if not session:
             logger.warning(f"Doctor access attempt with unknown token: {clean_token[:8]}...")
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
+                status_code=status.HTTP_403_FORBIDDEN,
                 detail="Invalid or unknown access token. Please verify the QR code or link.",
             )
 
@@ -370,8 +379,9 @@ class ConsentService:
         # Check Expiration
         now_utc = datetime.now(timezone.utc)
         expires_dt = datetime.fromisoformat(session["expires_at"].replace("Z", "+00:00"))
-        if now_utc > expires_dt:
-            client.from_("consent_sessions").update({"status": "expired"}).eq("id", session["id"]).execute()
+        if now_utc > expires_dt or session.get("status") == "expired":
+            if session.get("status") != "expired":
+                client.from_("consent_sessions").update({"status": "expired"}).eq("id", session["id"]).execute()
             self._log_audit_event(
                 client=client,
                 patient_id=patient_id,
@@ -383,7 +393,7 @@ class ConsentService:
             )
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="This temporary doctor access session has expired.",
+                detail="This CarePath sharing session has expired. Please ask the patient to generate a new QR code.",
             )
 
         time_remaining = max(0, int((expires_dt - now_utc).total_seconds()))

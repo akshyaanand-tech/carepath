@@ -1,6 +1,7 @@
 import logging
 from typing import Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Request
+from app.core.config import settings
 from app.core.security import get_current_user, get_current_patient, get_supabase_admin
 from app.services.consent_service import consent_service
 from app.schemas.consent import (
@@ -28,8 +29,13 @@ async def create_consent_session(
     Generates a cryptographically secure token and QR access URL.
     """
     admin_client = get_supabase_admin()
-    # Resolve base URL from request headers if possible (e.g. Origin or Host)
-    base_url = request.headers.get("origin") or "http://localhost:3000"
+    # Resolve public base URL: Prefer configured APP_URL, then frontend x-app-url header, then origin, then default
+    base_url = (
+        settings.APP_URL
+        or request.headers.get("x-app-url")
+        or request.headers.get("origin")
+        or "http://localhost:3000"
+    ).rstrip("/")
 
     return consent_service.create_consent_session(
         client=admin_client,
@@ -51,7 +57,12 @@ async def list_consent_sessions(
     Automatically checks and marks expired sessions server-side.
     """
     admin_client = get_supabase_admin()
-    base_url = request.headers.get("origin") or "http://localhost:3000"
+    base_url = (
+        settings.APP_URL
+        or request.headers.get("x-app-url")
+        or request.headers.get("origin")
+        or "http://localhost:3000"
+    ).rstrip("/")
     return consent_service.get_consent_sessions(
         client=admin_client,
         user_id=user.id,

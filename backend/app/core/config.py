@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     PORT: int = Field(default=8000, description="FastAPI server port")
     HOST: str = Field(default="0.0.0.0", description="FastAPI server host")
     CORS_ORIGINS: str = Field(default="http://localhost:3000,http://127.0.0.1:3000", description="Allowed CORS origins")
+    APP_URL: str = Field(default="", description="Public frontend URL for share QR codes, e.g. https://carepath.example.com")
 
     @property
     def cors_origin_list(self) -> List[str]:
