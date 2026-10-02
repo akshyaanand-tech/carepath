@@ -324,6 +324,55 @@ class IntelligenceService:
         confirmed_count = 0
         projected_count = 0
 
+        # 0. Primary Confirmed & Planned Health Events (from public.health_events)
+        try:
+            he_res = client.from_("health_events").select("*").eq("patient_id", patient_id).execute()
+            for he in he_res.data or []:
+                doc_info = doc_map.get(he.get("document_id"), {})
+                iso_date = he.get("event_date")
+                status_val = he.get("status", "completed")
+                is_planned = (status_val == "planned")
+
+                display_date = iso_date
+                if iso_date:
+                    try:
+                        dt = datetime.strptime(str(iso_date)[:10], "%Y-%m-%d")
+                        display_date = dt.strftime("%b %d, %Y")
+                        if is_planned:
+                            display_date = f"Planned: {display_date}"
+                    except Exception:
+                        pass
+
+                if is_planned:
+                    projected_count += 1
+                else:
+                    confirmed_count += 1
+
+                events.append(
+                    CalendarEvent(
+                        id=f"he-{he['id']}",
+                        event_type=he.get("event_type", "visit"),
+                        title=he.get("title") or "Healthcare Event",
+                        date=str(iso_date) if iso_date else None,
+                        date_display=display_date or "Scheduled Date",
+                        is_projected=is_planned,
+                        relative_time_text=None,
+                        projection_basis="Planned healthcare appointment" if is_planned else "Confirmed healthcare event date",
+                        document_id=he.get("document_id"),
+                        document_name=doc_info.get("file_name"),
+                        source_page=None,
+                        source_text=he.get("description") or "Healthcare event",
+                        confidence_note="Confirmed healthcare event",
+                        status=status_val,
+                        doctor_name=he.get("doctor_name"),
+                        clinic_name=he.get("clinic_name"),
+                        location=he.get("location"),
+                        description=he.get("description"),
+                    )
+                )
+        except Exception as e:
+            logger.warning(f"Could not load health_events in get_calendar: {e}")
+
         # Follow-ups (Primary source of appointments and review dates)
         fol_res = client.from_("follow_ups").select("*").eq("patient_id", patient_id).execute()
         for f in fol_res.data or []:

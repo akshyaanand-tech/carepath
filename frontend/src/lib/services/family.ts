@@ -211,3 +211,39 @@ export async function fetchFamilyMemberRecords(
     return { data: null, error: new Error(msg) };
   }
 }
+
+/**
+ * Safely removes a family member from a group.
+ * The member's patient profile and health records remain completely intact.
+ */
+export async function removeFamilyMember(
+  supabase: SupabaseClient,
+  membershipId: string
+): Promise<{ success: boolean; error: Error | null }> {
+  try {
+    const authHeader = await getAuthHeader(supabase);
+    if (!authHeader) {
+      return { success: false, error: new Error("Authentication required.") };
+    }
+
+    const response = await fetch(`${BACKEND_URL}/api/family/members/${membershipId}`, {
+      method: "DELETE",
+      headers: {
+        ...authHeader,
+      },
+    });
+
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      return {
+        success: false,
+        error: new Error(errData.detail || `Failed to remove family member (${response.status}).`),
+      };
+    }
+
+    return { success: true, error: null };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Failed to remove family member.";
+    return { success: false, error: new Error(msg) };
+  }
+}

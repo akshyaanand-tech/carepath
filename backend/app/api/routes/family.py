@@ -89,6 +89,25 @@ async def update_family_member(
     )
 
 
+@router.delete("/members/{membership_id}")
+async def remove_family_member(
+    membership_id: str,
+    user: Any = Depends(get_current_user),
+    patient: Dict[str, Any] = Depends(get_current_patient),
+):
+    """
+    Safely removes a family member from a family circle.
+    Preserves the member's separate medical history and patient records.
+    """
+    admin_client = get_supabase_admin()
+    return family_service.remove_family_member(
+        client=admin_client,
+        user_id=user.id,
+        requester_patient_id=patient["id"],
+        membership_id=membership_id,
+    )
+
+
 @router.get("/members/{target_patient_id}/records")
 async def get_family_member_records(
     target_patient_id: str,

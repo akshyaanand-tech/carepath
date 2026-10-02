@@ -149,20 +149,72 @@ export interface TimelineResponse {
   categories: Record<string, number>;
 }
 
+export type HealthEventType = "visit" | "test" | "medication" | "procedure" | "follow_up";
+export type HealthEventStatus = "completed" | "planned";
+
+export interface HealthEventItem {
+  id: string;
+  patient_id: string;
+  document_id?: string | null;
+  event_date: string;
+  event_type: HealthEventType;
+  title: string;
+  doctor_name?: string | null;
+  clinic_name?: string | null;
+  location?: string | null;
+  description?: string | null;
+  status: HealthEventStatus;
+  document_name?: string | null;
+  created_at: string;
+}
+
+export interface HealthEventCreateRequest {
+  event_date: string;
+  event_type: HealthEventType;
+  title: string;
+  doctor_name?: string | null;
+  clinic_name?: string | null;
+  location?: string | null;
+  description?: string | null;
+  status?: HealthEventStatus;
+  document_id?: string | null;
+  patient_id?: string | null;
+}
+
+export interface HealthEventCandidate {
+  document_id: string;
+  document_name: string;
+  document_type: string;
+  detected_date?: string | null;
+  confidence_is_date_confirmed: boolean;
+  suggested_event_type: HealthEventType;
+  suggested_title: string;
+  doctor_name?: string | null;
+  clinic_name?: string | null;
+  location?: string | null;
+  description?: string | null;
+  status: HealthEventStatus;
+}
+
 export interface CalendarEvent {
   id: string;
-  event_type: "follow_up" | "investigation" | "procedure" | "appointment";
+  event_type: "follow_up" | "investigation" | "procedure" | "appointment" | "visit" | "test" | "medication";
   title: string;
   date: string | null;
   date_display: string;
   is_projected: boolean;
   relative_time_text?: string | null;
   projection_basis?: string | null;
-  document_id: string;
-  document_name: string;
+  document_id?: string | null;
+  document_name?: string | null;
   source_page?: number | null;
-  source_text: string;
+  source_text?: string | null;
   confidence_note?: string | null;
+  status?: HealthEventStatus;
+  doctor_name?: string | null;
+  clinic_name?: string | null;
+  location?: string | null;
+  description?: string | null;
 }
 
 export interface CalendarResponse {

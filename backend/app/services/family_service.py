@@ -322,6 +322,76 @@ class FamilyService:
                 detail=f"Failed to update membership: {str(e)}",
             )
 
+    def remove_family_member(
+        self,
+        client: Client,
+        user_id: str,
+        requester_patient_id: str,
+        membership_id: str,
+    ) -> Dict[str, Any]:
+        """
+        Safely removes a family member from a family group.
+        Preserves the member's separate medical history and patient record intact.
+        Enforces strict authorization: user must own the group or be the member.
+        Prevents removing the primary account holder / group owner.
+        """
+        if membership_id.startswith("demo-mem-"):
+            return {"success": True, "message": "Family member removed successfully."}
+
+        try:
+            # 1. Fetch membership and parent family group
+            mem_res = (
+                client.from_("family_memberships")
+                .select("*, family_groups!inner(id, name, created_by)")
+                .eq("id", membership_id)
+                .maybe_single()
+                .execute()
+            )
+            mem = mem_res.data
+            if not mem:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Family membership not found.",
+                )
+
+            family_group = mem.get("family_groups") or {}
+            group_owner_uid = family_group.get("created_by")
+
+            # 2. Authorization check: must be circle creator OR the member themselves
+            is_creator = group_owner_uid == user_id
+            is_self = mem["patient_id"] == requester_patient_id
+
+            if not (is_creator or is_self):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You do not have authorization to remove this family member.",
+                )
+
+            # 3. Guard against removing primary account holder / owner
+            if mem.get("role") == "owner" or mem.get("relationship") == "Primary Account Holder":
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="The primary account holder cannot be removed from the family circle.",
+                )
+
+            # 4. Safely delete ONLY the family_memberships row (NEVER patient or medical records)
+            client.from_("family_memberships").delete().eq("id", membership_id).execute()
+
+            logger.info(f"Membership {membership_id} removed by user {user_id}. Patient records preserved.")
+            return {
+                "success": True,
+                "message": "Family member removed successfully.",
+                "membership_id": membership_id,
+            }
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error removing family member {membership_id}: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Unable to remove family member: {str(e)}",
+            )
+
     def verify_family_view_permission(
         self,
         client: Client,

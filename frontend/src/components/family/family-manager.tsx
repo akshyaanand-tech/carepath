@@ -12,6 +12,10 @@ import {
   Plus,
   RefreshCw,
   AlertTriangle,
+  Trash2,
+  CheckCircle2,
+  X,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +24,7 @@ import {
   fetchFamilyDashboard,
   createFamilyGroup,
   updateFamilyMember,
+  removeFamilyMember,
 } from "@/lib/services/family";
 import {
   FamilyGroupItem,
@@ -47,6 +52,12 @@ export function FamilyManager({ currentPatientId }: FamilyManagerProps) {
 
   // Add member modal state
   const [activeGroupForAdd, setActiveGroupForAdd] = useState<FamilyGroupItem | null>(null);
+
+  // Delete member modal state
+  const [memberToDelete, setMemberToDelete] = useState<FamilyMemberProfile | null>(null);
+  const [deletingMember, setDeletingMember] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // View member records modal state
   const [selectedMemberForRecords, setSelectedMemberForRecords] = useState<FamilyMemberProfile | null>(null);
@@ -136,6 +147,35 @@ export function FamilyManager({ currentPatientId }: FamilyManagerProps) {
     }
   };
 
+  const handleConfirmDeleteMember = async () => {
+    if (!memberToDelete) return;
+    setDeletingMember(true);
+    setDeleteError(null);
+    try {
+      const supabase = createClient();
+      const res = await removeFamilyMember(supabase, memberToDelete.id);
+      if (!res.success) {
+        setDeleteError(res.error?.message || "Unable to remove family member. Please try again.");
+      } else {
+        // Remove member from local state without refreshing full page
+        setGroups((prev) =>
+          prev.map((g) => ({
+            ...g,
+            members: g.members.filter((m) => m.id !== memberToDelete.id),
+          }))
+        );
+        setMemberToDelete(null);
+        setSuccessMessage("Family member removed successfully.");
+        setTimeout(() => setSuccessMessage(null), 4500);
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Unable to remove family member. Please try again.";
+      setDeleteError(msg);
+    } finally {
+      setDeletingMember(false);
+    }
+  };
+
   // Calculate total members across all circles
   const allMembers = groups.flatMap((g) => g.members);
   const totalMembersCount = allMembers.length;
@@ -183,6 +223,23 @@ export function FamilyManager({ currentPatientId }: FamilyManagerProps) {
           </Button>
         </div>
       </div>
+
+      {/* Success Notification */}
+      {successMessage && (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-xs text-emerald-900 flex items-center justify-between shadow-2xs animate-in fade-in duration-200">
+          <div className="flex items-center gap-2.5">
+            <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+            <span className="font-semibold">{successMessage}</span>
+          </div>
+          <button
+            onClick={() => setSuccessMessage(null)}
+            className="text-emerald-700 hover:text-emerald-900 transition-colors p-1"
+            aria-label="Dismiss message"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -380,6 +437,22 @@ export function FamilyManager({ currentPatientId }: FamilyManagerProps) {
                         >
                           <QrCode className="h-3.5 w-3.5" />
                         </Button>
+
+                        {!isCurrent && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              setDeleteError(null);
+                              setMemberToDelete(member);
+                            }}
+                            title="Remove family member"
+                            aria-label="Remove family member"
+                            className="text-xs h-8 text-slate-400 hover:text-rose-600 hover:bg-rose-50 px-2 transition-colors"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
                       </div>
                     </div>
                   );
@@ -485,6 +558,66 @@ export function FamilyManager({ currentPatientId }: FamilyManagerProps) {
           session={generatedSession}
           onClose={() => setGeneratedSession(null)}
         />
+      )}
+
+      {/* Confirmation Dialog for Removing Family Member */}
+      {memberToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+          <div className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-start gap-3.5">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-rose-600 border border-rose-200">
+                <Trash2 className="h-5 w-5" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-base font-bold text-slate-900">Remove Family Member?</h3>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Are you sure you want to remove <strong className="text-slate-900">{memberToDelete.full_name}</strong> from your CarePath family group?
+                </p>
+                <p className="text-xs text-slate-500">
+                  Their separate health profile will no longer appear in this family dashboard.
+                </p>
+              </div>
+            </div>
+
+            {deleteError && (
+              <div className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-900">
+                {deleteError}
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={deletingMember}
+                onClick={() => {
+                  setMemberToDelete(null);
+                  setDeleteError(null);
+                }}
+                className="text-xs text-slate-700"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                disabled={deletingMember}
+                onClick={handleConfirmDeleteMember}
+                className="bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-xs"
+              >
+                {deletingMember ? (
+                  <>
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                    Removing...
+                  </>
+                ) : (
+                  "Remove Member"
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

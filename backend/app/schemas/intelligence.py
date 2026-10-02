@@ -28,21 +28,26 @@ class TimelineResponse(BaseModel):
 
 class CalendarEvent(BaseModel):
     """
-    Calendar event representing a confirmed clinical appointment or a deterministically projected follow-up.
+    Calendar event representing a confirmed clinical appointment, procedure, or deterministically projected follow-up.
     """
     id: str = Field(description="Unique calendar event identifier")
-    event_type: str = Field(description="Event classification: follow_up, investigation, procedure, appointment")
+    event_type: str = Field(description="Event classification: visit, test, medication, procedure, follow_up, appointment")
     title: str = Field(description="Descriptive name of the appointment or scheduled review")
     date: Optional[str] = Field(default=None, description="ISO Date (YYYY-MM-DD)")
     date_display: str = Field(description="Display date string or relative timeframe label")
-    is_projected: bool = Field(description="True if calculated from relative timeframe; False if confirmed date")
+    is_projected: bool = Field(description="True if calculated from relative timeframe or planned; False if completed date")
     relative_time_text: Optional[str] = Field(default=None, description="As written relative duration (e.g., '3 months')")
     projection_basis: Optional[str] = Field(default=None, description="Explanation of deterministic date calculation")
-    document_id: str = Field(description="Source document UUID")
-    document_name: str = Field(description="File name of source document")
+    document_id: Optional[str] = Field(default=None, description="Source document UUID or null for manual events")
+    document_name: Optional[str] = Field(default=None, description="File name of source document or null")
     source_page: Optional[int] = Field(default=None, description="Source page number or null")
-    source_text: str = Field(description="Source quotation")
+    source_text: Optional[str] = Field(default=None, description="Source quotation or null")
     confidence_note: Optional[str] = Field(default=None)
+    status: Optional[str] = Field(default="completed", description="completed or planned")
+    doctor_name: Optional[str] = Field(default=None, description="Attending physician")
+    clinic_name: Optional[str] = Field(default=None, description="Hospital or clinic name")
+    location: Optional[str] = Field(default=None, description="Facility location")
+    description: Optional[str] = Field(default=None, description="Event notes or description")
 
 
 class CalendarResponse(BaseModel):

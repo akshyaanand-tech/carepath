@@ -2,7 +2,7 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
-from app.api.routes import health, documents, intelligence, family, consent, doctor, subscription, ai_doctor
+from app.api.routes import health, documents, intelligence, family, consent, doctor, subscription, ai_doctor, health_events
 
 # Configure structured logging
 logging.basicConfig(
@@ -14,7 +14,7 @@ logger = logging.getLogger("carepath.backend")
 app = FastAPI(
     title="CarePath AI Intelligence Engine",
     description="Deterministic FastAPI backend providing multimodal document understanding (OpenAI & Gemini), clinical validation, family permissions, temporary QR doctor consent, timeline aggregation, audit logging, and freemium subscriptions.",
-    version="1.3.0",
+    version="1.4.0",
     docs_url="/docs",
     redoc_url="/redoc",
 )
@@ -40,18 +40,20 @@ app.include_router(consent.router)
 app.include_router(doctor.router)
 app.include_router(subscription.router)
 app.include_router(ai_doctor.router)
+app.include_router(health_events.router)
 
 
 @app.get("/")
 def root():
     return {
         "service": "CarePath AI Intelligence Engine",
-        "sprint": "Sprint 6: AI Resiliency, Subscriptions & Demo Isolation",
+        "sprint": "Sprint 7: Health Calendar Fix & Family Member Delete",
         "documentation": "/docs",
         "health": "/health",
         "endpoints": {
             "timeline": "/api/timeline",
             "calendar": "/api/calendar",
+            "health_events": "/api/health-events",
             "mismatches": "/api/mismatches",
             "documents": "/api/documents",
             "family": "/api/family",

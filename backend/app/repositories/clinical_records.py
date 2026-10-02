@@ -3,6 +3,8 @@ from typing import Dict, Any, Optional
 from supabase import Client
 from app.schemas.extraction import MedicalDocumentExtraction
 
+from app.utils.date_utils import normalize_date
+
 logger = logging.getLogger("carepath.clinical_records")
 
 
@@ -41,7 +43,7 @@ class ClinicalRecordsRepository:
                         "document_id": document_id,
                         "name": item.name,
                         "status": item.status,
-                        "date": item.date,
+                        "date": normalize_date(item.date),
                         "source_page": item.source_reference.page if item.source_reference else None,
                         "source_text": item.source_reference.source_text if item.source_reference else None,
                         "confidence_note": item.confidence_note,
@@ -62,8 +64,8 @@ class ClinicalRecordsRepository:
                         "frequency": item.frequency,
                         "duration": item.duration,
                         "instructions": item.instructions,
-                        "start_date": item.start_date,
-                        "end_date": item.end_date,
+                        "start_date": normalize_date(item.start_date),
+                        "end_date": normalize_date(item.end_date),
                         "source_page": item.source_reference.page if item.source_reference else None,
                         "source_text": item.source_reference.source_text if item.source_reference else None,
                         "confidence_note": item.confidence_note,
@@ -79,7 +81,7 @@ class ClinicalRecordsRepository:
                         "patient_id": patient_id,
                         "document_id": document_id,
                         "name": item.name,
-                        "date": item.date,
+                        "date": normalize_date(item.date),
                         "result": item.result,
                         "unit": item.unit,
                         "reference_range": item.reference_range,
@@ -99,7 +101,7 @@ class ClinicalRecordsRepository:
                         "patient_id": patient_id,
                         "document_id": document_id,
                         "name": item.name,
-                        "date": item.date,
+                        "date": normalize_date(item.date),
                         "details": item.details,
                         "source_page": item.source_reference.page if item.source_reference else None,
                         "source_text": item.source_reference.source_text if item.source_reference else None,
@@ -133,7 +135,7 @@ class ClinicalRecordsRepository:
                         "patient_id": patient_id,
                         "document_id": document_id,
                         "description": item.description,
-                        "confirmed_date": item.confirmed_date,
+                        "confirmed_date": normalize_date(item.confirmed_date),
                         "relative_time": item.relative_time,
                         "source_page": item.source_reference.page if item.source_reference else None,
                         "source_text": item.source_reference.source_text if item.source_reference else None,
@@ -149,7 +151,7 @@ class ClinicalRecordsRepository:
                 "patient_id": patient_id,
                 "document_id": document_id,
                 "document_type": extraction.document_type,
-                "document_date": extraction.document_date,
+                "document_date": normalize_date(extraction.document_date),
                 "provider_name": extraction.provider_name,
                 "patient_name_as_written": extraction.patient_name_as_written,
                 "clinical_notes": extraction.clinical_notes,

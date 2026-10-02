@@ -181,23 +181,25 @@ export function SourceLinkingModal({
 
             <div className="flex items-center justify-between text-xs text-slate-700 bg-white p-2.5 rounded-lg border border-teal-100">
               <span className="font-semibold text-slate-900 truncate max-w-sm">
-                {event.document_name}
+                {event.document_name || "Patient-Recorded Health Event"}
               </span>
               <span className="font-mono text-[10px] text-slate-500">
-                ID: {event.document_id.slice(0, 8)}...
+                {event.document_id ? `ID: ${event.document_id.slice(0, 8)}...` : "Manual Entry"}
               </span>
             </div>
 
             {/* Verbatim Source Quote */}
-            <div className="space-y-1.5 pt-1">
-              <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700">
-                <Quote className="h-3.5 w-3.5 text-teal-600" />
-                <span>Verbatim Extraction Provenance</span>
+            {event.source_text && (
+              <div className="space-y-1.5 pt-1">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700">
+                  <Quote className="h-3.5 w-3.5 text-teal-600" />
+                  <span>{event.document_id ? "Verbatim Extraction Provenance" : "Event Notes & Clinical Details"}</span>
+                </div>
+                <div className="rounded-lg bg-white border border-slate-200 p-3.5 text-xs text-slate-800 italic leading-relaxed shadow-xs">
+                  &ldquo;{event.source_text}&rdquo;
+                </div>
               </div>
-              <div className="rounded-lg bg-white border border-slate-200 p-3.5 text-xs text-slate-800 italic leading-relaxed shadow-xs">
-                &ldquo;{event.source_text}&rdquo;
-              </div>
-            </div>
+            )}
 
             {/* Confidence / Attribution Note */}
             {event.confidence_note && (
@@ -237,21 +239,25 @@ export function SourceLinkingModal({
         {/* Modal Footer */}
         <div className="flex items-center justify-between border-t border-slate-200 px-6 py-4 bg-slate-50">
           <p className="text-xs text-slate-500 hidden sm:block">
-            Ground truth verified against patient-owned vault.
+            {event.document_id
+              ? "Ground truth verified against patient-owned vault."
+              : "Patient-recorded healthcare event in CarePath calendar."}
           </p>
 
           <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
             <Button variant="outline" size="sm" onClick={onClose} className="text-xs">
               Close
             </Button>
-            <Button
-              size="sm"
-              onClick={() => onOpenDocument(event.document_id, event.source_page)}
-              className="bg-teal-600 hover:bg-teal-700 text-white text-xs font-medium shadow-xs"
-            >
-              <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
-              Open Original Document
-            </Button>
+            {event.document_id && (
+              <Button
+                size="sm"
+                onClick={() => onOpenDocument(event.document_id!, event.source_page)}
+                className="bg-teal-600 hover:bg-teal-700 text-white text-xs font-medium shadow-xs"
+              >
+                <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
+                Open Original Document
+              </Button>
+            )}
           </div>
         </div>
       </div>
