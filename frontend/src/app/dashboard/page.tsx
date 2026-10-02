@@ -182,6 +182,12 @@ export default async function DashboardPage() {
               Upload Document
             </Button>
           </Link>
+          <Link href="/insurance">
+            <Button size="sm" variant="outline" className="text-xs border-teal-300 text-teal-800 bg-teal-50/60 hover:bg-teal-100" id="dashboard-insurance-btn">
+              <ShieldCheck className="mr-1.5 h-3.5 w-3.5 text-teal-600" />
+              Insurance Assistant
+            </Button>
+          </Link>
           <Link href="/consent">
             <Button size="sm" variant="outline" className="text-xs border-teal-300 text-teal-800 bg-teal-50/60 hover:bg-teal-100">
               <QrCode className="mr-1.5 h-3.5 w-3.5 text-teal-600" />
