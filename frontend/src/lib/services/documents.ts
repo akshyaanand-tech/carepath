@@ -70,19 +70,59 @@ export function sanitizeFileName(name: string): string {
     .slice(0, 100);
 }
 
+import { invalidateIntelligenceCache } from "@/lib/services/intelligence";
+
+interface DocumentCacheEntry {
+  documents: MedicalDocument[];
+  timestamp: number;
+  patientId: string;
+}
+
+const DEFAULT_DOCS_TTL_MS = 60 * 1000; // 60 seconds
+let documentCache: { [patientId: string]: DocumentCacheEntry } = {};
+
+/**
+ * Invalidates cached patient documents.
+ */
+export function invalidateDocumentCache(patientId?: string) {
+  if (patientId) {
+    delete documentCache[patientId];
+  } else {
+    documentCache = {};
+  }
+}
+
+/**
+ * Synchronous accessor for cached patient documents.
+ */
+export function getCachedDocuments(patientId: string): MedicalDocument[] | null {
+  const entry = documentCache[patientId];
+  if (!entry) return null;
+  if (Date.now() - entry.timestamp > DEFAULT_DOCS_TTL_MS) return null;
+  return entry.documents;
+}
+
 /**
  * Retrieves all documents for a patient from public.documents.
- * Protected by Row Level Security.
+ * Protected by Row Level Security and accelerated with in-memory caching.
  */
 export async function getPatientDocuments(
   supabase: SupabaseClient,
-  patientId: string
+  patientId: string,
+  options?: { forceRefresh?: boolean }
 ): Promise<{
   documents: MedicalDocument[];
   error: Error | null;
   tableMissing?: boolean;
 }> {
   try {
+    if (!options?.forceRefresh && documentCache[patientId]) {
+      const entry = documentCache[patientId];
+      if (Date.now() - entry.timestamp <= DEFAULT_DOCS_TTL_MS) {
+        return { documents: entry.documents, error: null };
+      }
+    }
+
     const { data, error } = await supabase
       .from("documents")
       .select("*")
@@ -100,7 +140,14 @@ export async function getPatientDocuments(
       return { documents: [], error: new Error(error.message) };
     }
 
-    return { documents: (data as MedicalDocument[]) || [], error: null };
+    const docs = (data as MedicalDocument[]) || [];
+    documentCache[patientId] = {
+      documents: docs,
+      timestamp: Date.now(),
+      patientId,
+    };
+
+    return { documents: docs, error: null };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Failed to load medical documents";
     return { documents: [], error: new Error(message) };
@@ -260,6 +307,8 @@ export async function uploadMedicalDocument(
       };
     }
 
+    invalidateDocumentCache(patientId);
+    invalidateIntelligenceCache();
     return { document: docData as MedicalDocument, error: null };
   } catch (err: unknown) {
     // Attempt cleanup on unexpected failure
@@ -303,6 +352,8 @@ export async function deleteMedicalDocument(
       console.warn("Storage object removal warning:", storageError.message);
     }
 
+    invalidateDocumentCache();
+    invalidateIntelligenceCache();
     return { success: true, error: null };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Failed to delete medical document";

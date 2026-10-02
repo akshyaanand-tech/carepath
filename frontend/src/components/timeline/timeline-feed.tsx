@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import Link from "next/link";
 import {
   Activity,
   Pill,
@@ -389,11 +390,11 @@ export function TimelineFeed({
                 </Button>
               ) : (
                 <div className="pt-2">
-                  <a href="/documents">
+                  <Link href="/documents">
                     <Button size="sm" className="bg-teal-600 hover:bg-teal-700 text-white text-xs">
                       Upload Document
                     </Button>
-                  </a>
+                  </Link>
                 </div>
               )}
             </div>

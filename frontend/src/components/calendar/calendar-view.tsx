@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import Link from "next/link";
 import {
   Calendar as CalendarIcon,
   Clock,
@@ -201,11 +202,11 @@ export function CalendarView({
             </p>
             {events.length === 0 && (
               <div className="pt-2">
-                <a href="/documents">
+                <Link href="/documents">
                   <span className="inline-flex items-center justify-center rounded-lg bg-teal-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-teal-700 shadow-2xs">
                     Upload Document
                   </span>
-                </a>
+                </Link>
               </div>
             )}
           </div>

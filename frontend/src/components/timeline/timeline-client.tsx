@@ -4,8 +4,13 @@ import { useEffect, useState } from "react";
 import { Loader2, RefreshCw, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
-import { fetchTimeline, fetchMismatches } from "@/lib/services/intelligence";
-import { getPatientDocuments } from "@/lib/services/documents";
+import {
+  fetchTimeline,
+  fetchMismatches,
+  getCachedTimeline,
+  getCachedMismatches,
+} from "@/lib/services/intelligence";
+import { getPatientDocuments, getCachedDocuments } from "@/lib/services/documents";
 import { TimelineEvent, MismatchItem, MedicalDocument } from "@/lib/types";
 import { TimelineFeed } from "./timeline-feed";
 import { SourceLinkingModal } from "./source-linking-modal";
@@ -16,11 +21,15 @@ interface TimelineClientProps {
 }
 
 export function TimelineClient({ patientId }: TimelineClientProps) {
-  const [events, setEvents] = useState<TimelineEvent[]>([]);
-  const [categories, setCategories] = useState<Record<string, number>>({});
-  const [mismatches, setMismatches] = useState<MismatchItem[]>([]);
-  const [documents, setDocuments] = useState<MedicalDocument[]>([]);
-  const [loading, setLoading] = useState(true);
+  const cachedTl = getCachedTimeline();
+  const cachedMis = getCachedMismatches();
+  const cachedDocs = getCachedDocuments(patientId);
+
+  const [events, setEvents] = useState<TimelineEvent[]>(() => cachedTl?.events || []);
+  const [categories, setCategories] = useState<Record<string, number>>(() => cachedTl?.categories || {});
+  const [mismatches, setMismatches] = useState<MismatchItem[]>(() => cachedMis?.mismatches || []);
+  const [documents, setDocuments] = useState<MedicalDocument[]>(() => cachedDocs || []);
+  const [loading, setLoading] = useState(() => !cachedTl);
   const [error, setError] = useState<string | null>(null);
 
   // Modals state
@@ -28,16 +37,16 @@ export function TimelineClient({ patientId }: TimelineClientProps) {
   const [viewerDocument, setViewerDocument] = useState<MedicalDocument | null>(null);
   const [targetPage, setTargetPage] = useState<number | null>(null);
 
-  const loadData = async () => {
+  const loadData = async (forceRefresh = true) => {
     setLoading(true);
     setError(null);
     const supabase = createClient();
 
     try {
       const [tlRes, misRes, docRes] = await Promise.all([
-        fetchTimeline(supabase),
-        fetchMismatches(supabase),
-        getPatientDocuments(supabase, patientId),
+        fetchTimeline(supabase, { forceRefresh }),
+        fetchMismatches(supabase, { forceRefresh }),
+        getPatientDocuments(supabase, patientId, { forceRefresh }),
       ]);
 
       if (tlRes.error) {
@@ -145,7 +154,7 @@ export function TimelineClient({ patientId }: TimelineClientProps) {
         <Button
           variant="outline"
           size="sm"
-          onClick={loadData}
+          onClick={() => loadData(true)}
           disabled={loading}
           className="text-xs h-9 text-slate-700 self-start sm:self-auto border-slate-300 shadow-2xs"
         >

@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { createClient } from "@/lib/supabase/client";
 import {
   fetchFamilyDashboard,
+  getCachedFamilyDashboard,
   createFamilyGroup,
   updateFamilyMember,
   removeFamilyMember,
@@ -41,8 +42,10 @@ interface FamilyManagerProps {
 }
 
 export function FamilyManager({ currentPatientId }: FamilyManagerProps) {
-  const [groups, setGroups] = useState<FamilyGroupItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const cachedFam = getCachedFamilyDashboard();
+
+  const [groups, setGroups] = useState<FamilyGroupItem[]>(() => cachedFam?.groups || []);
+  const [loading, setLoading] = useState(() => !cachedFam);
   const [error, setError] = useState<string | null>(null);
 
   // Group creation modal state
@@ -66,13 +69,13 @@ export function FamilyManager({ currentPatientId }: FamilyManagerProps) {
   const [sharingMember, setSharingMember] = useState<FamilyMemberProfile | null>(null);
   const [generatedSession, setGeneratedSession] = useState<ConsentSessionItem | null>(null);
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (forceRefresh = true) => {
     setLoading(true);
     setError(null);
     const supabase = createClient();
 
     try {
-      const res = await fetchFamilyDashboard(supabase);
+      const res = await fetchFamilyDashboard(supabase, { forceRefresh });
       if (res.error) {
         setError(res.error.message);
       } else if (res.data) {
@@ -205,7 +208,7 @@ export function FamilyManager({ currentPatientId }: FamilyManagerProps) {
           <Button
             variant="outline"
             size="sm"
-            onClick={loadData}
+            onClick={() => loadData(true)}
             disabled={loading}
             className="text-xs h-9 text-slate-700 border-slate-300 shadow-2xs"
           >

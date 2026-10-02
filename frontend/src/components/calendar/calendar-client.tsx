@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import { Loader2, RefreshCw, AlertTriangle, Plus, Sparkles, FileText, CheckCircle2, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
-import { fetchCalendar } from "@/lib/services/intelligence";
-import { getPatientDocuments } from "@/lib/services/documents";
+import { fetchCalendar, getCachedCalendar } from "@/lib/services/intelligence";
+import { getPatientDocuments, getCachedDocuments } from "@/lib/services/documents";
 import { fetchEventCandidates } from "@/lib/services/health-events";
 import { CalendarEvent, MedicalDocument, HealthEventCandidate } from "@/lib/types";
 import { CalendarView } from "./calendar-view";
@@ -18,12 +18,15 @@ interface CalendarClientProps {
 }
 
 export function CalendarClient({ patientId }: CalendarClientProps) {
-  const [events, setEvents] = useState<CalendarEvent[]>([]);
-  const [confirmedCount, setConfirmedCount] = useState(0);
-  const [projectedCount, setProjectedCount] = useState(0);
-  const [documents, setDocuments] = useState<MedicalDocument[]>([]);
+  const cachedCal = getCachedCalendar();
+  const cachedDocs = getCachedDocuments(patientId);
+
+  const [events, setEvents] = useState<CalendarEvent[]>(() => cachedCal?.events || []);
+  const [confirmedCount, setConfirmedCount] = useState(() => cachedCal?.confirmed_count || 0);
+  const [projectedCount, setProjectedCount] = useState(() => cachedCal?.projected_count || 0);
+  const [documents, setDocuments] = useState<MedicalDocument[]>(() => cachedDocs || []);
   const [candidates, setCandidates] = useState<HealthEventCandidate[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !cachedCal);
   const [error, setError] = useState<string | null>(null);
 
   // Modals state
@@ -33,15 +36,15 @@ export function CalendarClient({ patientId }: CalendarClientProps) {
   const [viewerDocument, setViewerDocument] = useState<MedicalDocument | null>(null);
   const [targetPage, setTargetPage] = useState<number | null>(null);
 
-  const loadData = async () => {
+  const loadData = async (forceRefresh = true) => {
     setLoading(true);
     setError(null);
     const supabase = createClient();
 
     try {
       const [calRes, docRes, candRes] = await Promise.all([
-        fetchCalendar(supabase),
-        getPatientDocuments(supabase, patientId),
+        fetchCalendar(supabase, { forceRefresh }),
+        getPatientDocuments(supabase, patientId, { forceRefresh }),
         fetchEventCandidates(supabase, patientId),
       ]);
 
@@ -152,7 +155,7 @@ export function CalendarClient({ patientId }: CalendarClientProps) {
           <Button
             variant="outline"
             size="sm"
-            onClick={loadData}
+            onClick={() => loadData(true)}
             disabled={loading}
             className="text-xs h-9 text-slate-700 border-slate-300 shadow-2xs"
           >

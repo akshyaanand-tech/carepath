@@ -15,9 +15,11 @@ import { Badge } from "@/components/ui/badge";
 import { createClient } from "@/lib/supabase/client";
 import {
   fetchConsentSessions,
+  getCachedConsentSessions,
   revokeConsentSession,
   fetchAccessAuditLogs,
 } from "@/lib/services/consent";
+import { fetchFamilyDashboard, getCachedFamilyDashboard } from "@/lib/services/family";
 import {
   ConsentSessionItem,
   AuditLogItem,
@@ -32,10 +34,16 @@ interface ConsentManagerProps {
 }
 
 export function ConsentManager({ patientId, familyMembers = [] }: ConsentManagerProps) {
-  const [sessions, setSessions] = useState<ConsentSessionItem[]>([]);
+  const cachedSessions = getCachedConsentSessions();
+  const cachedFam = getCachedFamilyDashboard();
+
+  const [sessions, setSessions] = useState<ConsentSessionItem[]>(() => cachedSessions?.sessions || []);
   const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>([]);
+  const [familyList, setFamilyList] = useState<FamilyMemberProfile[]>(
+    () => (familyMembers.length > 0 ? familyMembers : cachedFam?.groups?.flatMap((g) => g.members) || [])
+  );
   const [activeTab, setActiveTab] = useState<"sessions" | "audit">("sessions");
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !cachedSessions);
   const [revokingId, setRevokingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,15 +51,16 @@ export function ConsentManager({ patientId, familyMembers = [] }: ConsentManager
   const [viewingSession, setViewingSession] = useState<ConsentSessionItem | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (forceRefresh = true) => {
     setLoading(true);
     setError(null);
     const supabase = createClient();
 
     try {
-      const [sessionsRes, logsRes] = await Promise.all([
-        fetchConsentSessions(supabase),
+      const [sessionsRes, logsRes, familyRes] = await Promise.all([
+        fetchConsentSessions(supabase, { forceRefresh }),
         fetchAccessAuditLogs(supabase),
+        familyMembers.length === 0 ? fetchFamilyDashboard(supabase, { forceRefresh }) : Promise.resolve(null),
       ]);
 
       if (sessionsRes.error) {
@@ -63,12 +72,16 @@ export function ConsentManager({ patientId, familyMembers = [] }: ConsentManager
       if (logsRes.data) {
         setAuditLogs(logsRes.data.logs);
       }
+
+      if (familyRes?.data?.groups) {
+        setFamilyList(familyRes.data.groups.flatMap((g) => g.members));
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to load consent data.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [familyMembers]);
 
   useEffect(() => {
     let isMounted = true;
@@ -166,7 +179,7 @@ export function ConsentManager({ patientId, familyMembers = [] }: ConsentManager
           <Button
             variant="outline"
             size="sm"
-            onClick={loadData}
+            onClick={() => loadData(true)}
             disabled={loading}
             className="text-xs h-9 text-slate-700 border-slate-300 shadow-2xs"
           >
@@ -447,7 +460,7 @@ export function ConsentManager({ patientId, familyMembers = [] }: ConsentManager
       {showCreateModal && (
         <CreateConsentModal
           onClose={() => setShowCreateModal(false)}
-          familyMembers={familyMembers}
+          familyMembers={familyList}
           initialPatientId={patientId}
           onCreated={(newSession) => {
             setShowCreateModal(false);

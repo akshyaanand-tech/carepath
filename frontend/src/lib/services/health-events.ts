@@ -4,6 +4,7 @@ import {
   HealthEventCreateRequest,
   HealthEventCandidate,
 } from "@/lib/types";
+import { invalidateIntelligenceCache } from "@/lib/services/intelligence";
 
 const BACKEND_URL =
   process.env.NEXT_PUBLIC_API_URL ||
@@ -93,6 +94,7 @@ export async function createHealthEvent(
     }
 
     const data: HealthEventItem = await response.json();
+    invalidateIntelligenceCache("calendar");
     return { data, error: null };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Failed to create health event.";
@@ -128,6 +130,7 @@ export async function deleteHealthEvent(
       };
     }
 
+    invalidateIntelligenceCache("calendar");
     return { success: true, error: null };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Failed to delete health event.";

@@ -2,6 +2,7 @@ import re
 import logging
 from datetime import datetime, date, timedelta
 from typing import List, Dict, Any, Optional
+from concurrent.futures import ThreadPoolExecutor
 from supabase import Client
 from app.schemas.intelligence import (
     TimelineEvent,
@@ -135,8 +136,23 @@ class IntelligenceService:
         """
         Aggregates diagnoses, medications, investigations, procedures, and follow-ups
         into a unified, chronologically sorted health journey.
+        Executes independent Supabase queries concurrently to eliminate sequential network waterfalls.
         """
-        doc_map = self._get_document_map(client, patient_id)
+        with ThreadPoolExecutor(max_workers=6) as executor:
+            f_docs = executor.submit(lambda: self._get_document_map(client, patient_id))
+            f_diag = executor.submit(lambda: client.from_("diagnoses").select("*").eq("patient_id", patient_id).execute())
+            f_med = executor.submit(lambda: client.from_("medications").select("*").eq("patient_id", patient_id).execute())
+            f_inv = executor.submit(lambda: client.from_("investigations").select("*").eq("patient_id", patient_id).execute())
+            f_proc = executor.submit(lambda: client.from_("procedures").select("*").eq("patient_id", patient_id).execute())
+            f_fol = executor.submit(lambda: client.from_("follow_ups").select("*").eq("patient_id", patient_id).execute())
+
+            doc_map = f_docs.result()
+            diag_res = f_diag.result()
+            med_res = f_med.result()
+            inv_res = f_inv.result()
+            proc_res = f_proc.result()
+            fol_res = f_fol.result()
+
         events: List[TimelineEvent] = []
         categories = {
             "diagnoses": 0,
@@ -147,7 +163,6 @@ class IntelligenceService:
         }
 
         # 1. Diagnoses
-        diag_res = client.from_("diagnoses").select("*").eq("patient_id", patient_id).execute()
         for d in diag_res.data or []:
             categories["diagnoses"] += 1
             doc_info = doc_map.get(d["document_id"], {})
@@ -173,7 +188,6 @@ class IntelligenceService:
             )
 
         # 2. Medications
-        med_res = client.from_("medications").select("*").eq("patient_id", patient_id).execute()
         for m in med_res.data or []:
             categories["medications"] += 1
             doc_info = doc_map.get(m["document_id"], {})
@@ -206,7 +220,6 @@ class IntelligenceService:
             )
 
         # 3. Investigations
-        inv_res = client.from_("investigations").select("*").eq("patient_id", patient_id).execute()
         for i in inv_res.data or []:
             categories["investigations"] += 1
             doc_info = doc_map.get(i["document_id"], {})
@@ -237,7 +250,6 @@ class IntelligenceService:
             )
 
         # 4. Procedures
-        proc_res = client.from_("procedures").select("*").eq("patient_id", patient_id).execute()
         for p in proc_res.data or []:
             categories["procedures"] += 1
             doc_info = doc_map.get(p["document_id"], {})
@@ -263,7 +275,6 @@ class IntelligenceService:
             )
 
         # 5. Follow-ups
-        fol_res = client.from_("follow_ups").select("*").eq("patient_id", patient_id).execute()
         for f in fol_res.data or []:
             categories["follow_ups"] += 1
             doc_info = doc_map.get(f["document_id"], {})
@@ -317,16 +328,31 @@ class IntelligenceService:
         Builds healthcare calendar from confirmed dates and deterministically
         calculated relative intervals. Strict visual and semantic distinction
         between confirmed clinical dates and AI-derived / projected dates.
+        Executes independent Supabase queries concurrently to eliminate sequential network waterfalls.
         """
-        doc_map = self._get_document_map(client, patient_id)
-        doc_dates = self._get_document_dates(client, patient_id)
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            f_docs = executor.submit(lambda: self._get_document_map(client, patient_id))
+            f_dates = executor.submit(lambda: self._get_document_dates(client, patient_id))
+            f_he = executor.submit(lambda: client.from_("health_events").select("*").eq("patient_id", patient_id).execute())
+            f_fol = executor.submit(lambda: client.from_("follow_ups").select("*").eq("patient_id", patient_id).execute())
+            f_proc = executor.submit(lambda: client.from_("procedures").select("*").eq("patient_id", patient_id).execute())
+
+            doc_map = f_docs.result()
+            doc_dates = f_dates.result()
+            try:
+                he_res = f_he.result()
+            except Exception as e:
+                logger.warning(f"Could not load health_events in get_calendar: {e}")
+                he_res = None
+            fol_res = f_fol.result()
+            proc_res = f_proc.result()
+
         events: List[CalendarEvent] = []
         confirmed_count = 0
         projected_count = 0
 
         # 0. Primary Confirmed & Planned Health Events (from public.health_events)
-        try:
-            he_res = client.from_("health_events").select("*").eq("patient_id", patient_id).execute()
+        if he_res:
             for he in he_res.data or []:
                 doc_info = doc_map.get(he.get("document_id"), {})
                 iso_date = he.get("event_date")
@@ -370,11 +396,8 @@ class IntelligenceService:
                         description=he.get("description"),
                     )
                 )
-        except Exception as e:
-            logger.warning(f"Could not load health_events in get_calendar: {e}")
 
         # Follow-ups (Primary source of appointments and review dates)
-        fol_res = client.from_("follow_ups").select("*").eq("patient_id", patient_id).execute()
         for f in fol_res.data or []:
             doc_info = doc_map.get(f["document_id"], {})
             confirmed_date = f.get("confirmed_date")
@@ -457,7 +480,6 @@ class IntelligenceService:
                     )
 
         # Include confirmed procedures and investigation test dates as milestones
-        proc_res = client.from_("procedures").select("*").eq("patient_id", patient_id).execute()
         for p in proc_res.data or []:
             if p.get("date"):
                 iso_date, display_date, is_confirmed = self._format_date(p.get("date"))
@@ -505,14 +527,30 @@ class IntelligenceService:
         Identifies potential mismatches (medication dosage differences, anatomical sites,
         tooth numbers, and procedure inconsistencies).
         NEVER claims a doctor made an error or asserts which record is correct.
+        Executes independent Supabase queries concurrently to eliminate sequential network waterfalls.
         """
-        doc_map = self._get_document_map(client, patient_id)
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            f_docs = executor.submit(lambda: self._get_document_map(client, patient_id))
+            f_meds = executor.submit(lambda: client.from_("medications").select("*").eq("patient_id", patient_id).execute())
+            f_proc = executor.submit(lambda: client.from_("procedures").select("*").eq("patient_id", patient_id).execute())
+            f_ext = executor.submit(lambda: client.from_("document_extractions").select("document_id, clinical_notes, raw_extraction").eq("patient_id", patient_id).execute())
+            f_db_mis = executor.submit(lambda: client.from_("cross_document_mismatches").select("*").eq("patient_id", patient_id).execute())
+
+            doc_map = f_docs.result()
+            meds_res = f_meds.result()
+            proc_res = f_proc.result()
+            ext_res = f_ext.result()
+            try:
+                db_mismatches_res = f_db_mis.result()
+            except Exception as e:
+                logger.info(f"Dynamic mismatch detection active (DB table query skipped: {e})")
+                db_mismatches_res = None
+
         mismatches: List[MismatchItem] = []
 
         # ---------------------------------------------------------------------
         # A. Medication Dosages & Frequencies Across Documents
         # ---------------------------------------------------------------------
-        meds_res = client.from_("medications").select("*").eq("patient_id", patient_id).execute()
         meds_by_name: Dict[str, List[Dict[str, Any]]] = {}
 
         for m in meds_res.data or []:
@@ -586,8 +624,7 @@ class IntelligenceService:
         # Collect tooth references per document
         dental_refs: List[Dict[str, Any]] = []
 
-        # Check procedures
-        proc_res = client.from_("procedures").select("*").eq("patient_id", patient_id).execute()
+        # Check procedures (using prefetched concurrent proc_res)
         for p in proc_res.data or []:
             combined_text = f"{p['name']} {p.get('details') or ''} {p.get('source_text') or ''}"
             matches = dental_regex.findall(combined_text)
@@ -601,13 +638,7 @@ class IntelligenceService:
                     "title": p["name"],
                 })
 
-        # Check raw extractions clinical notes for tooth references
-        ext_res = (
-            client.from_("document_extractions")
-            .select("document_id, clinical_notes, raw_extraction")
-            .eq("patient_id", patient_id)
-            .execute()
-        )
+        # Check raw extractions clinical notes for tooth references (using prefetched concurrent ext_res)
         for ext in ext_res.data or []:
             notes = ext.get("clinical_notes") or ""
             matches = dental_regex.findall(notes)
@@ -673,9 +704,8 @@ class IntelligenceService:
         # ---------------------------------------------------------------------
         # C. Check for existing persisted mismatches in database if table exists
         # ---------------------------------------------------------------------
-        try:
-            db_mismatches = client.from_("cross_document_mismatches").select("*").eq("patient_id", patient_id).execute()
-            for row in db_mismatches.data or []:
+        if db_mismatches_res and db_mismatches_res.data:
+            for row in db_mismatches_res.data:
                 # check if not already added by id
                 if not any(m.id == row["id"] for m in mismatches):
                     doc_a_name = doc_map.get(row.get("source_a_document_id"), {}).get("file_name", "Document A")
@@ -706,9 +736,6 @@ class IntelligenceService:
                             created_at=row.get("created_at"),
                         )
                     )
-        except Exception as e:
-            # Table may not have been migrated yet in remote Supabase, fallback cleanly
-            logger.info(f"Dynamic mismatch detection active (DB table query skipped: {e})")
 
         return MismatchResponse(
             mismatches=mismatches,

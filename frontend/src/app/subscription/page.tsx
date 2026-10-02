@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { createClient } from "@/lib/supabase/client";
 import {
   fetchSubscriptionStatus,
+  getCachedSubscriptionStatus,
   createCheckoutOrder,
   verifyPaymentAndUpgrade,
   cancelSubscription,
@@ -32,7 +33,7 @@ declare global {
 }
 
 export default function SubscriptionPage() {
-  const [data, setData] = useState<SubscriptionStatusResponse | null>(null);
+  const [data, setData] = useState<SubscriptionStatusResponse | null>(() => getCachedSubscriptionStatus());
   const [error, setError] = useState<string | null>(null);
   const [upgrading, setUpgrading] = useState(false);
   const [cancelling, setCancelling] = useState(false);

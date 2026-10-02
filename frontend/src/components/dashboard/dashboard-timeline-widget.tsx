@@ -19,13 +19,21 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { createClient } from "@/lib/supabase/client";
-import { fetchTimeline, fetchMismatches } from "@/lib/services/intelligence";
+import {
+  fetchTimeline,
+  fetchMismatches,
+  getCachedTimeline,
+  getCachedMismatches,
+} from "@/lib/services/intelligence";
 import { TimelineEvent, MismatchItem } from "@/lib/types";
 
 export function DashboardTimelineWidget() {
-  const [events, setEvents] = useState<TimelineEvent[]>([]);
-  const [mismatches, setMismatches] = useState<MismatchItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const cachedTl = getCachedTimeline();
+  const cachedMis = getCachedMismatches();
+
+  const [events, setEvents] = useState<TimelineEvent[]>(() => cachedTl?.events || []);
+  const [mismatches, setMismatches] = useState<MismatchItem[]>(() => cachedMis?.mismatches || []);
+  const [loading, setLoading] = useState(() => !cachedTl);
 
   useEffect(() => {
     let isMounted = true;

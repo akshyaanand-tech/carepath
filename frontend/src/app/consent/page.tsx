@@ -6,7 +6,6 @@ import { getPatientProfile } from "@/lib/services/profile";
 import { CompleteProfileCard } from "@/components/profile/complete-profile-card";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { ConsentManager } from "@/components/consent/consent-manager";
-import { fetchFamilyDashboard } from "@/lib/services/family";
 
 export const metadata = {
   title: "Consent & QR Sharing | CarePath",
@@ -65,10 +64,6 @@ export default async function ConsentPage() {
     );
   }
 
-  // Pre-fetch family members if any to enable sharing for dependents
-  const familyRes = await fetchFamilyDashboard(supabase);
-  const familyMembers = familyRes.data?.groups.flatMap((g) => g.members) || [];
-
   return (
     <div className="min-h-screen bg-slate-50/50 pb-16">
       {/* Top Breadcrumb & Navigation Bar */}
@@ -93,7 +88,7 @@ export default async function ConsentPage() {
 
       {/* Main Consent Workspace */}
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <ConsentManager patientId={profile.id} familyMembers={familyMembers} />
+        <ConsentManager patientId={profile.id} />
       </div>
     </div>
   );

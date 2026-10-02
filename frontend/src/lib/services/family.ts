@@ -24,36 +24,103 @@ async function getAuthHeader(supabase: SupabaseClient): Promise<{ Authorization:
   return { Authorization: `Bearer ${session.access_token}` };
 }
 
+interface FamilyCacheEntry {
+  data: FamilyDashboardResponse;
+  timestamp: number;
+  userId: string;
+}
+
+const DEFAULT_FAMILY_TTL_MS = 60 * 1000; // 60 seconds
+let familyCache: FamilyCacheEntry | null = null;
+let inFlightFamily: Promise<{ data: FamilyDashboardResponse | null; error: Error | null }> | null = null;
+
+/**
+ * Invalidates cached family dashboard data.
+ */
+export function invalidateFamilyCache() {
+  familyCache = null;
+}
+
+/**
+ * Synchronous accessor for cached family dashboard data to permit 0ms instant UI rendering.
+ */
+export function getCachedFamilyDashboard(userId?: string): FamilyDashboardResponse | null {
+  if (!familyCache) return null;
+  if (userId && familyCache.userId !== userId) return null;
+  if (Date.now() - familyCache.timestamp > DEFAULT_FAMILY_TTL_MS) return null;
+  return familyCache.data;
+}
+
 /**
  * Fetches family groups and member identities for the authenticated patient.
+ * Uses in-memory caching and request deduplication to make screen switching snappy.
  */
 export async function fetchFamilyDashboard(
-  supabase: SupabaseClient
+  supabase: SupabaseClient,
+  options?: { forceRefresh?: boolean }
 ): Promise<{ data: FamilyDashboardResponse | null; error: Error | null }> {
   try {
-    const authHeader = await getAuthHeader(supabase);
-    if (!authHeader) {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.access_token) {
       return { data: null, error: new Error("Authentication required to access Family Dashboard.") };
     }
 
-    const response = await fetch(`${BACKEND_URL}/api/family`, {
-      method: "GET",
-      headers: {
-        ...authHeader,
-        "Content-Type": "application/json",
-      },
-    });
+    const userId = session.user?.id || "unknown";
 
-    if (!response.ok) {
-      const errData = await response.json().catch(() => ({}));
-      return {
-        data: null,
-        error: new Error(errData.detail || `Error (${response.status}) loading family dashboard.`),
-      };
+    if (familyCache && familyCache.userId !== userId) {
+      familyCache = null;
     }
 
-    const data: FamilyDashboardResponse = await response.json();
-    return { data, error: null };
+    if (!options?.forceRefresh && familyCache) {
+      if (Date.now() - familyCache.timestamp <= DEFAULT_FAMILY_TTL_MS) {
+        return { data: familyCache.data, error: null };
+      }
+    }
+
+    if (inFlightFamily) {
+      return await inFlightFamily;
+    }
+
+    const authHeader = { Authorization: `Bearer ${session.access_token}` };
+
+    const fetchPromise = (async () => {
+      try {
+        const response = await fetch(`${BACKEND_URL}/api/family`, {
+          method: "GET",
+          headers: {
+            ...authHeader,
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          return {
+            data: null,
+            error: new Error(errData.detail || `Error (${response.status}) loading family dashboard.`),
+          };
+        }
+
+        const data: FamilyDashboardResponse = await response.json();
+        familyCache = {
+          data,
+          timestamp: Date.now(),
+          userId,
+        };
+        return { data, error: null };
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "Failed to load family dashboard.";
+        return { data: null, error: new Error(msg) };
+      } finally {
+        inFlightFamily = null;
+      }
+    })();
+
+    inFlightFamily = fetchPromise;
+    return await fetchPromise;
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Failed to load family dashboard.";
     return { data: null, error: new Error(msg) };
@@ -91,6 +158,7 @@ export async function createFamilyGroup(
     }
 
     const data: FamilyGroupItem = await response.json();
+    invalidateFamilyCache();
     return { data, error: null };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Failed to create family group.";
@@ -129,6 +197,7 @@ export async function addFamilyMember(
     }
 
     const data: FamilyMemberProfile = await response.json();
+    invalidateFamilyCache();
     return { data, error: null };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Failed to add family member.";
@@ -167,6 +236,7 @@ export async function updateFamilyMember(
       };
     }
 
+    invalidateFamilyCache();
     return { success: true, error: null };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Failed to update member.";
@@ -241,6 +311,7 @@ export async function removeFamilyMember(
       };
     }
 
+    invalidateFamilyCache();
     return { success: true, error: null };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Failed to remove family member.";

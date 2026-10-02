@@ -1,5 +1,7 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { MedicalDocumentExtraction } from "@/lib/types";
+import { invalidateIntelligenceCache } from "@/lib/services/intelligence";
+import { invalidateDocumentCache } from "@/lib/services/documents";
 
 const BACKEND_URL =
   process.env.NEXT_PUBLIC_API_URL ||
@@ -49,6 +51,8 @@ export async function triggerDocumentAnalysis(
       return { extraction: null, error: new Error(errorMsg) };
     }
 
+    invalidateDocumentCache();
+    invalidateIntelligenceCache();
     return { extraction: data.extraction as MedicalDocumentExtraction, error: null };
   } catch (err: unknown) {
     const message =

@@ -72,30 +72,95 @@ async function getAuthHeader(supabase: SupabaseClient): Promise<{ Authorization:
   return { Authorization: `Bearer ${session.access_token}` };
 }
 
+interface SubCacheEntry {
+  data: SubscriptionStatusResponse;
+  timestamp: number;
+  userId: string;
+}
+
+const DEFAULT_SUB_TTL_MS = 60 * 1000; // 60 seconds
+let subCache: SubCacheEntry | null = null;
+let inFlightSub: Promise<{ data: SubscriptionStatusResponse | null; error: Error | null }> | null = null;
+
+/**
+ * Invalidates cached subscription status.
+ */
+export function invalidateSubscriptionCache() {
+  subCache = null;
+}
+
+/**
+ * Synchronous accessor for cached subscription status to permit 0ms instant UI rendering.
+ */
+export function getCachedSubscriptionStatus(userId?: string): SubscriptionStatusResponse | null {
+  if (!subCache) return null;
+  if (userId && subCache.userId !== userId) return null;
+  if (Date.now() - subCache.timestamp > DEFAULT_SUB_TTL_MS) return null;
+  return subCache.data;
+}
+
 export async function fetchSubscriptionStatus(
-  supabase: SupabaseClient
+  supabase: SupabaseClient,
+  options?: { forceRefresh?: boolean }
 ): Promise<{ data: SubscriptionStatusResponse | null; error: Error | null }> {
   try {
-    const authHeader = await getAuthHeader(supabase);
-    if (!authHeader) {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.access_token) {
       return { data: null, error: new Error("Authentication session required.") };
     }
 
-    const response = await fetch(`${BACKEND_URL}/api/subscription/current`, {
-      method: "GET",
-      headers: {
-        ...authHeader,
-        "Content-Type": "application/json",
-      },
-    });
+    const userId = session.user?.id || "unknown";
 
-    if (!response.ok) {
-      const err = await response.json().catch(() => ({}));
-      return { data: null, error: new Error(err.detail || `HTTP ${response.status}`) };
+    if (subCache && subCache.userId !== userId) {
+      subCache = null;
     }
 
-    const data: SubscriptionStatusResponse = await response.json();
-    return { data, error: null };
+    if (!options?.forceRefresh && subCache) {
+      if (Date.now() - subCache.timestamp <= DEFAULT_SUB_TTL_MS) {
+        return { data: subCache.data, error: null };
+      }
+    }
+
+    if (inFlightSub) {
+      return await inFlightSub;
+    }
+
+    const authHeader = { Authorization: `Bearer ${session.access_token}` };
+
+    const fetchPromise = (async () => {
+      try {
+        const response = await fetch(`${BACKEND_URL}/api/subscription/current`, {
+          method: "GET",
+          headers: {
+            ...authHeader,
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}));
+          return { data: null, error: new Error(err.detail || `HTTP ${response.status}`) };
+        }
+
+        const data: SubscriptionStatusResponse = await response.json();
+        subCache = {
+          data,
+          timestamp: Date.now(),
+          userId,
+        };
+        return { data, error: null };
+      } catch (err: unknown) {
+        return { data: null, error: new Error(err instanceof Error ? err.message : "Failed to load subscription") };
+      } finally {
+        inFlightSub = null;
+      }
+    })();
+
+    inFlightSub = fetchPromise;
+    return await fetchPromise;
   } catch (err: unknown) {
     return { data: null, error: new Error(err instanceof Error ? err.message : "Failed to load subscription") };
   }
@@ -157,6 +222,7 @@ export async function verifyPaymentAndUpgrade(
     }
 
     const data: VerifyPaymentResponse = await response.json();
+    invalidateSubscriptionCache();
     return { data, error: null };
   } catch (err: unknown) {
     return { data: null, error: new Error(err instanceof Error ? err.message : "Failed to verify payment") };
@@ -185,6 +251,7 @@ export async function cancelSubscription(
       return { success: false, error: new Error(err.detail || `Cancel failed (${response.status})`) };
     }
 
+    invalidateSubscriptionCache();
     return { success: true, error: null };
   } catch (err: unknown) {
     return { success: false, error: new Error(err instanceof Error ? err.message : "Failed to cancel subscription") };

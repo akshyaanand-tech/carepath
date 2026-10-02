@@ -55,6 +55,33 @@ async function getAuthHeader(supabase: SupabaseClient): Promise<{ Authorization:
   return { Authorization: `Bearer ${session.access_token}` };
 }
 
+interface ConsentCacheEntry {
+  data: ConsentSessionListResponse;
+  timestamp: number;
+  userId: string;
+}
+
+const DEFAULT_CONSENT_TTL_MS = 60 * 1000; // 60 seconds
+let consentCache: ConsentCacheEntry | null = null;
+let inFlightConsent: Promise<{ data: ConsentSessionListResponse | null; error: Error | null }> | null = null;
+
+/**
+ * Invalidates cached consent sessions.
+ */
+export function invalidateConsentCache() {
+  consentCache = null;
+}
+
+/**
+ * Synchronous accessor for cached consent sessions to permit 0ms instant UI rendering.
+ */
+export function getCachedConsentSessions(userId?: string): ConsentSessionListResponse | null {
+  if (!consentCache) return null;
+  if (userId && consentCache.userId !== userId) return null;
+  if (Date.now() - consentCache.timestamp > DEFAULT_CONSENT_TTL_MS) return null;
+  return consentCache.data;
+}
+
 /**
  * Creates a time-bound doctor access session with opaque cryptographic token.
  */
@@ -90,6 +117,7 @@ export async function createConsentSession(
 
     const data: ConsentSessionItem = await response.json();
     data.qr_access_url = formatShareUrl(data.access_token, data.qr_access_url);
+    invalidateConsentCache();
     return { data, error: null };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Failed to create consent session.";
@@ -99,40 +127,81 @@ export async function createConsentSession(
 
 /**
  * Fetches all active, expired, and revoked consent sessions for the patient.
+ * Uses in-memory caching and request deduplication to prevent screen switching delays.
  */
 export async function fetchConsentSessions(
-  supabase: SupabaseClient
+  supabase: SupabaseClient,
+  options?: { forceRefresh?: boolean }
 ): Promise<{ data: ConsentSessionListResponse | null; error: Error | null }> {
   try {
-    const authHeader = await getAuthHeader(supabase);
-    if (!authHeader) {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.access_token) {
       return { data: null, error: new Error("Authentication required.") };
     }
 
-    const response = await fetch(`${BACKEND_URL}/api/consent`, {
-      method: "GET",
-      headers: {
-        ...authHeader,
-        "Content-Type": "application/json",
-      },
-    });
+    const userId = session.user?.id || "unknown";
 
-    if (!response.ok) {
-      const errData = await response.json().catch(() => ({}));
-      return {
-        data: null,
-        error: new Error(errData.detail || `Failed to load consent sessions (${response.status}).`),
-      };
+    if (consentCache && consentCache.userId !== userId) {
+      consentCache = null;
     }
 
-    const data: ConsentSessionListResponse = await response.json();
-    if (data.sessions && Array.isArray(data.sessions)) {
-      data.sessions = data.sessions.map((s) => ({
-        ...s,
-        qr_access_url: formatShareUrl(s.access_token, s.qr_access_url),
-      }));
+    if (!options?.forceRefresh && consentCache) {
+      if (Date.now() - consentCache.timestamp <= DEFAULT_CONSENT_TTL_MS) {
+        return { data: consentCache.data, error: null };
+      }
     }
-    return { data, error: null };
+
+    if (inFlightConsent) {
+      return await inFlightConsent;
+    }
+
+    const authHeader = { Authorization: `Bearer ${session.access_token}` };
+
+    const fetchPromise = (async () => {
+      try {
+        const response = await fetch(`${BACKEND_URL}/api/consent`, {
+          method: "GET",
+          headers: {
+            ...authHeader,
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          return {
+            data: null,
+            error: new Error(errData.detail || `Failed to load consent sessions (${response.status}).`),
+          };
+        }
+
+        const data: ConsentSessionListResponse = await response.json();
+        if (data.sessions && Array.isArray(data.sessions)) {
+          data.sessions = data.sessions.map((s) => ({
+            ...s,
+            qr_access_url: formatShareUrl(s.access_token, s.qr_access_url),
+          }));
+        }
+
+        consentCache = {
+          data,
+          timestamp: Date.now(),
+          userId,
+        };
+        return { data, error: null };
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "Failed to load consent sessions.";
+        return { data: null, error: new Error(msg) };
+      } finally {
+        inFlightConsent = null;
+      }
+    })();
+
+    inFlightConsent = fetchPromise;
+    return await fetchPromise;
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Failed to load consent sessions.";
     return { data: null, error: new Error(msg) };
@@ -169,6 +238,7 @@ export async function revokeConsentSession(
     }
 
     const data: RevokeConsentResponse = await response.json();
+    invalidateConsentCache();
     return { data, error: null };
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Failed to revoke session.";
